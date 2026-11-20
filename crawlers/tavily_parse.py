@@ -263,12 +263,8 @@ def make_job_row(
         location = "Việt Nam"
     infer_type = job_type or infer_job_type(desc, title)
     deadline = extract_deadline(desc) or extract_deadline(title)
-    from crawl_scope import year_scope_range
-    _, _year_max = year_scope_range()
-    import datetime as _dt
-    default_deadline = _dt.datetime(_year_max, 12, 31, 23, 59, 59)
-    if not deadline or not in_year_scope(deadline):
-        deadline = default_deadline.date().isoformat()
+    if deadline and not in_year_scope(deadline):
+        deadline = None
     return {
         "title": (title or "")[:255],
         "company_name": (company or "")[:255],
@@ -306,10 +302,8 @@ def make_internship_row(
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
     deadline = extract_deadline(desc) or extract_deadline(title)
-    _, _year_max = year_scope_range()
-    import datetime as _dt
-    if not deadline or not in_year_scope(deadline):
-        deadline = _dt.datetime(_year_max, 12, 31, 23, 59, 59)
+    if deadline and not in_year_scope(deadline):
+        deadline = None
     return {
         "title": (title or "")[:255],
         "company_id": None,
@@ -320,9 +314,9 @@ def make_internship_row(
         "field": (str(field)[:100] if field else "internship"),
         "location_point": None,
         "salary_range": salary,
-        "duration": "Flexible",
-        "requirements": clean_text(description)[:500] if description else "Xem mô tả chi tiết.",
-        "benefits": "Làm việc linh hoạt, phát triển kỹ năng.",
+        "duration": None,
+        "requirements": clean_text(description)[:500] if description else None,
+        "benefits": None,
         "deadline": deadline,
         "application_count": 0,
         "status": "open",
@@ -362,7 +356,7 @@ def make_event_row(
         "address": address or "Việt Nam",
         "start_date": start,
         "end_date": end,
-        "capacity": 200,
+        "capacity": None,
         "registered_count": 0,
         "banner_url": banner_url,
         "organizer_id": None,
@@ -389,8 +383,10 @@ def make_scholarship_row(
     from crawl_scope import in_year_scope
     import datetime as _dt
     now = _dt.datetime.utcnow()
-    if deadline is None or not in_year_scope(deadline.date().isoformat() if hasattr(deadline, 'date') else str(deadline)):
-        deadline = now + _dt.timedelta(days=30)
+    if deadline is not None and not in_year_scope(
+        deadline.date().isoformat() if hasattr(deadline, "date") else str(deadline)
+    ):
+        deadline = None
     desc = clean_text(description) or ""
     return {
         "title": (title or "")[:255],
@@ -486,7 +482,7 @@ def make_map_point_row(
         return {}
     return {
         "name": (name or "")[:255],
-        "description": (description or category)[:500],
+        "description": (description or "")[:500],
         "category": category,
         "location": f"POINT({lng} {lat})",
         "address": (address or "")[:300],
@@ -516,7 +512,7 @@ def make_wifi_row(
         "location_point": f"POINT({lng} {lat})",
         "address": (address or "")[:300],
         "speed_mbps": speed_mbps,
-        "is_free": True,
+        "is_free": None,
         "password": None,
         "hint": (hint or "")[:200],
         "provider": (provider or "")[:200],
@@ -634,8 +630,6 @@ def parse_tavily_jobs(
         return []
 
     _, year_max = year_scope_range()
-    from datetime import datetime as _dt
-    default_deadline = _dt(year_max, 12, 31, 23, 59, 59).date().isoformat()
 
     rows: List[Dict[str, Any]] = []
     seen: set = set()
@@ -672,6 +666,9 @@ def parse_tavily_jobs(
         seen.add(dedup)
 
         job_type = infer_job_type(blob, title)
+        deadline = extract_deadline(blob) or extract_deadline(title)
+        if deadline and not in_year_scope(deadline):
+            deadline = None
         if company and not company.lower().startswith("unknown"):
             company_clean = company[:255]
         else:
@@ -689,7 +686,7 @@ def parse_tavily_jobs(
             "experience_level": "Chưa xác định",
             "source_url": url,
             "image_url": None,
-            "application_deadline": default_deadline,
+            "application_deadline": deadline,
             "crawl_year": year_max,
             "views": 0,
             "status": "active",
@@ -768,7 +765,9 @@ def parse_tavily_map_points(
         if lat is None or lng is None:
             continue  
 
-        name = raw_title[:255] if raw_title else f"{category} tại {lat:.4f},{lng:.4f}"
+        if not raw_title:
+            continue
+        name = raw_title[:255]
         if name.lower() in seen:
             continue
         seen.add(name.lower())

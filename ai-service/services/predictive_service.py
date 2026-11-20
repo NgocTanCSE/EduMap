@@ -49,11 +49,13 @@ class PredictiveService:
             return []
 
     def _load_active_job_skills(self) -> List[str]:
-        """Load required_skills from active job postings (SQLite fallback)."""
+        """Load required_skills from active job postings (Postgres in production)."""
         try:
-            from routers.analytics import _query_sqlite, _parse_skills
-            jobs = _query_sqlite(
-                "SELECT required_skills FROM jobs WHERE status = 'active'"
+            from routers.analytics import _query, _parse_skills
+            jobs = _query(
+                "SELECT required_skills FROM jobs WHERE status = 'active'",
+                "SELECT CAST(required_skills AS TEXT) AS required_skills "
+                "FROM jobs WHERE status = 'active'",
             )
             skills: List[str] = []
             for job in jobs:
@@ -438,8 +440,8 @@ class PredictiveService:
     def _load_region_points(self, region: Optional[str]) -> List[Dict[str, Any]]:
         """Load school/library/facility POIs (lat, lng, name, category) for a region.
 
-        Reads the SAME shared SQLite file the NestJS backend uses
-        (``education_stats`` lives there alongside ``map_points``/``locations``).
+        Reads the shared database (Postgres in production, SQLite only when
+        ``DB_TYPE=sqlite``) — ``map_points`` UNION ``locations``.
         Both POI tables are UNIONed: ``map_points`` carries ``province`` while
         ``locations`` only carries ``city``/``address`` — the address string
         embeds the province (e.g. "...TP. Biên Hòa, Đồng Nai") so a province
@@ -447,12 +449,18 @@ class PredictiveService:
         map_points. Region matching is a case-insensitive substring against
         region/province/district/city/address/name.
         """
-        from routers.analytics import _query_sqlite, _to_float
+        from routers.analytics import _query, _to_float
 
-        rows = _query_sqlite(
+        rows = _query(
             "SELECT city, district, province, address, name, type_id, location AS coords FROM map_points WHERE location IS NOT NULL "
             "UNION ALL "
-            "SELECT city, NULL AS district, NULL AS province, address, name, category_id AS type_id, coordinates AS coords FROM locations WHERE coordinates IS NOT NULL"
+            "SELECT city, NULL AS district, NULL AS province, address, name, category_id AS type_id, coordinates AS coords FROM locations WHERE coordinates IS NOT NULL",
+            "SELECT city, district, province, address, name, type_id, ST_AsText(location) AS coords "
+            "FROM map_points WHERE location IS NOT NULL "
+            "UNION ALL "
+            "SELECT l.city, NULL AS district, NULL AS province, l.address, l.name, "
+            "l.category_id AS type_id, ST_AsText(l.coordinates) AS coords "
+            "FROM locations l WHERE l.coordinates IS NOT NULL",
         ) or []
 
         points: List[Dict[str, Any]] = []

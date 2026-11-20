@@ -70,7 +70,7 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
     explanation = (
         f"Dựa trên phân tích an toàn thời gian thực (chế độ offline):\n"
         f"{best_str}\n\n{comparison}\n\n"
-        f"Lưu ý: Đây là phân tích dựa trên điểm số an toàn SQLite. "
+        f"Lưu ý: Đây là phân tích dựa trên điểm số an toàn tính từ dữ liệu ngập/lưu lượng hiện có. "
         f"Để nhận giải thích chi tiết từ AI, hãy cấu hình GROQ_API_KEY."
     )
 

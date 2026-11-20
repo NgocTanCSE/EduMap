@@ -88,7 +88,7 @@ def _event_row(title, description, address, start_date=None, banner_url=None,
     now = datetime.datetime.utcnow()
     start = parse_date(start_date) if start_date else None
     if start is None or not in_year_scope(start.date().isoformat()):
-        start = now
+        return None
     end = start + datetime.timedelta(days=1)
     is_online = bool(meeting_url) or "online" in (title + " " + (description or "")).lower()
     suffix = f" (tìm theo '{query}')" if query else ""
@@ -101,7 +101,7 @@ def _event_row(title, description, address, start_date=None, banner_url=None,
         "address": (address or "Việt Nam")[:300],
         "start_date": start,
         "end_date": end,
-        "capacity": 200,
+        "capacity": None,
         "registered_count": 0,
         "banner_url": banner_url,
         "organizer_id": None,

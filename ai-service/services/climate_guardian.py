@@ -40,6 +40,18 @@ except Exception:
     def cache_set(key: str, value: Any, ttl: int = 86400) -> None:
         pass
 
+try:
+    from .pg import query as pg_query, is_postgres as pg_is_postgres
+except Exception:
+    try:
+        from services.pg import query as pg_query, is_postgres as pg_is_postgres
+    except Exception:
+        def pg_query(sql: str, params=None) -> list:
+            return []
+
+        def pg_is_postgres() -> bool:
+            return False
+
 
 
 
@@ -442,7 +454,7 @@ _EDU_CATEGORIES = {
 
 def _load_educational_facilities(bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
     """Load educational facilities (schools, universities, libraries, wifi
-    spots) within a bounding box from SQLite.
+    spots) within a bounding box from the database.
 
     bbox = (min_lat, max_lat, min_lng, max_lng)
     Reads from ``locations`` and ``map_points`` tables.
@@ -451,11 +463,23 @@ def _load_educational_facilities(bbox: Tuple[float, float, float, float]) -> Lis
     facilities: List[Dict[str, Any]] = []
 
 
-    rows = _query_sqlite(
-        """SELECT id, name, coordinates, city, address, category_id
-           FROM locations WHERE coordinates IS NOT NULL AND city IS NOT NULL
-           LIMIT 5000"""
-    )
+    if pg_is_postgres():
+        rows = pg_query(
+            """SELECT id::text AS id, name, ST_AsText(coordinates) AS coordinates,
+                      city, address, category_id
+               FROM locations
+               WHERE coordinates IS NOT NULL
+                 AND ST_Intersects(coordinates::geometry,
+                                   ST_MakeEnvelope(%s, %s, %s, %s, 4326))
+               LIMIT 5000""",
+            (min_lng, min_lat, max_lng, max_lat),
+        )
+    else:
+        rows = _query_sqlite(
+            """SELECT id, name, coordinates, city, address, category_id
+               FROM locations WHERE coordinates IS NOT NULL AND city IS NOT NULL
+               LIMIT 5000"""
+        )
     for r in rows:
         coords = _parse_coords(r.get("coordinates"))
         if not coords:
@@ -473,11 +497,23 @@ def _load_educational_facilities(bbox: Tuple[float, float, float, float]) -> Lis
             })
 
 
-    rows2 = _query_sqlite(
-        """SELECT id, name, location, city, province, type_id
-           FROM map_points WHERE location IS NOT NULL AND city IS NOT NULL
-           LIMIT 5000"""
-    )
+    if pg_is_postgres():
+        rows2 = pg_query(
+            """SELECT id::text AS id, name, ST_AsText(location) AS location,
+                      city, province, type_id
+               FROM map_points
+               WHERE location IS NOT NULL AND deleted_at IS NULL
+                 AND ST_Intersects(location::geometry,
+                                   ST_MakeEnvelope(%s, %s, %s, %s, 4326))
+               LIMIT 5000""",
+            (min_lng, min_lat, max_lng, max_lat),
+        )
+    else:
+        rows2 = _query_sqlite(
+            """SELECT id, name, location, city, province, type_id
+               FROM map_points WHERE location IS NOT NULL AND city IS NOT NULL
+               LIMIT 5000"""
+        )
     for r in rows2:
         coords = _parse_coords(r.get("location"))
         if not coords:
@@ -563,17 +599,25 @@ def _load_flood_zones(bbox: Tuple[float, float, float, float]) -> List[Dict[str,
     """Load flood hazard zones overlapping the bbox.
 
     Priority:
-      1. Real flood zones from SQLite ``flood_zones`` table (if populated).
+      1. Real flood zones from the ``flood_zones`` table (if populated).
       2. Static flood hazard zones (STATIC_FLOOD_ZONES) — real Vietnamese
          flood-prone areas used as fallback when DB is empty or DB_TYPE != sqlite.
     """
     zones: List[Dict[str, Any]] = []
 
 
-    rows = _query_sqlite(
-        "SELECT id, name, description, coordinates, riskLevel, metadata "
-        "FROM flood_zones LIMIT 500"
-    )
+    if pg_is_postgres():
+        rows = pg_query(
+            """SELECT id::text AS id, name, description,
+                      ST_AsGeoJSON(coordinates) AS coordinates,
+                      "riskLevel" AS "riskLevel", metadata
+               FROM flood_zones LIMIT 500"""
+        )
+    else:
+        rows = _query_sqlite(
+            "SELECT id, name, description, coordinates, riskLevel, metadata "
+            "FROM flood_zones LIMIT 500"
+        )
     for r in rows:
         coords = r.get("coordinates") or r.get("geometry")
         if isinstance(coords, str):

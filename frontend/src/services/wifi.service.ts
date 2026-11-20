@@ -6,8 +6,8 @@ export interface WifiLocation {
     name: string;
     ssid: string;
     password?: string;
-    is_free: boolean;
-    speed_mbps: number;
+    is_free: boolean | null;
+    speed_mbps: number | null;
     provider?: string;
     location: any;
     verified: boolean;

@@ -44,27 +44,34 @@ class ImpactMeasureRequest(BaseModel):
 
 
 class PeriodMetrics(BaseModel):
-    """Before/after period summary."""
+    """Before/after period summary.
+
+    ``access_rate`` / ``user_count`` are ``None`` for the "before" period when
+    the records hold no facilities predating the deployment — a missing
+    baseline is reported as missing, never estimated.
+    """
     period: str
-    access_rate: float = Field(..., description="Tỉ lệ tiếp cận [0,1]")
-    user_count: int = Field(..., description="Số người được tiếp cận")
+    access_rate: Optional[float] = Field(default=None, description="Tỉ lệ tiếp cận [0,1]")
+    user_count: Optional[int] = Field(default=None, description="Số người được tiếp cận")
     facility_count: int = Field(..., description="Số cơ sở giáo dục trong vùng")
     usage_count: int = Field(..., description="Số lần sử dụng (ước tính)")
     synthetic_baseline: bool = Field(default=False,
-                                     description="True khi 'before' dùng chuẩn mực tổng dân × 0.7")
+                                     description="Luôn False — không còn baseline tự sinh")
+    has_baseline: bool = Field(default=False,
+                               description="True khi có cơ sở ghi nhận trước ngày triển khai")
 
 
 class DiffMetrics(BaseModel):
-    access_rate_delta: float
-    user_count_delta: int
-    usage_count_delta: int
-    coverage_improvement_pct: float
+    access_rate_delta: Optional[float] = None
+    user_count_delta: Optional[int] = None
+    usage_count_delta: Optional[int] = None
+    coverage_improvement_pct: Optional[float] = None
 
 
 class PeopleRadius(BaseModel):
-    before: int
-    after: int
-    delta: int
+    before: Optional[int] = None
+    after: Optional[int] = None
+    delta: Optional[int] = None
     radius_km: float
 
 
@@ -97,8 +104,8 @@ class ImpactMeasureResponse(BaseModel):
     diff: DiffMetrics
     people_in_radius: PeopleRadius
     trend: TrendAnalysis
-    impact_score: float = Field(..., description="Điểm tác động 0-100")
-    confidence_interval: ConfidenceInterval
+    impact_score: Optional[float] = Field(default=None, description="Điểm tác động 0-100 (None khi thiếu baseline)")
+    confidence_interval: Optional[ConfidenceInterval] = None
     causal_notes: List[str]
     narrative: str
     degraded: bool = False

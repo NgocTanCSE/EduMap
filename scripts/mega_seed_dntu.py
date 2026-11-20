@@ -15,6 +15,16 @@ DB_CONFIG = {
 }
 
 def mega_seed():
+    import os as _os
+    if _os.getenv("ALLOW_DEMO_SEED", "0") not in ("1", "true", "True"):
+        print(
+            "⛔ Bộ seed này tạo dữ liệu DEMO (học bổng/sự kiện/số liệu tự sinh).\n"
+            "   Dữ liệu production phải đến từ crawler thật "
+            "(scripts/run_feature_crawlers.sh) hoặc scripts/migrate_real_data.py.\n"
+            "   Chỉ đặt ALLOW_DEMO_SEED=1 khi bạn thực sự muốn dữ liệu demo."
+        )
+        return
+
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()

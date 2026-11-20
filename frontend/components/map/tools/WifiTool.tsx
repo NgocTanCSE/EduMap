@@ -15,8 +15,9 @@ interface WifiLocation {
     ssid?: string;
     description?: string;
     address?: string;
-    is_free?: boolean;
+    is_free?: boolean | null;
     is_verified?: boolean;
+    speed_mbps?: number | null;
     speedLabel?: string;
     lat?: number;
     lng?: number;
@@ -42,16 +43,25 @@ interface WifiLocation {
     ];
 }
 function deriveWifiMeta(loc: WifiLocation): {
-    isFree: boolean;
+    isFree: boolean | null;
     speedLabel: string;
 } {
     const text = `${loc?.name || ""} ${loc?.description || ""}`.toLowerCase();
-    const isFree = /free|miễn phí/i.test(text);
-    let speedLabel = "Ổn định";
-    if (/cáp quang|fiber|siêu tốc/i.test(text))
+    let isFree = loc?.is_free ?? null;
+    if (isFree === null && /miễn phí|free wifi|wifi công cộng/i.test(text)) {
+        isFree = true;
+    }
+    const mbps = typeof loc?.speed_mbps === "number" ? loc.speed_mbps : null;
+    let speedLabel = "Chưa đo";
+    if (mbps !== null && mbps > 0) {
+        speedLabel = mbps >= 100 ? "Rất nhanh" : mbps >= 30 ? "Nhanh" : "Ổn định";
+    }
+    else if (/cáp quang|fiber|siêu tốc/i.test(text)) {
         speedLabel = "Rất nhanh";
-    else if (/tốc độ cao|high-speed/i.test(text))
+    }
+    else if (/tốc độ cao|high-speed/i.test(text)) {
         speedLabel = "Nhanh";
+    }
     return { isFree, speedLabel };
 }
 function withWifiMeta(locs: WifiLocation[]): WifiLocation[] {
@@ -63,7 +73,7 @@ function withWifiMeta(locs: WifiLocation[]): WifiLocation[] {
 function wifiBadge(loc: WifiLocation): PinBadge | undefined {
     if (loc.is_verified)
         return { type: "verified" };
-    if (loc.is_free)
+    if (loc.is_free === true)
         return { type: "new" };
     return undefined;
 }
@@ -71,14 +81,15 @@ const SPEED_COLOR: Record<string, string> = {
     "Rất nhanh": "#22c55e",
     "Nhanh": "#3b82f6",
     "Ổn định": "#f59e0b",
+    "Chưa đo": "#94a3b8",
 };
 const SPEED_RADIUS: Record<string, number> = {
     "Rất nhanh": 400,
     "Nhanh": 300,
     "Ổn định": 200,
 };
-const getSpeedColor = (label?: string): string => SPEED_COLOR[label || ""] || "#f59e0b";
-const getSpeedRadius = (label?: string): number => SPEED_RADIUS[label || ""] || 200;
+const getSpeedColor = (label?: string): string => SPEED_COLOR[label || ""] || "#94a3b8";
+const getSpeedRadius = (label?: string): number => SPEED_RADIUS[label || ""] || 150;
 const getFreeColor = (isFree: boolean): string => isFree ? "#10b981" : "#f59e0b";
 function WifiPanel({ viewport, result, onResult, loading, setLoading, error, setError, active, user, }: ToolPanelProps) {
     const [wifiLocations, setWifiLocations] = useState<WifiLocation[]>([]);
@@ -136,8 +147,8 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
             }
         });
     };
-    const freeCount = wifiLocations.filter((w) => w.is_free).length;
-    const paidCount = wifiLocations.length - freeCount;
+    const freeCount = wifiLocations.filter((w) => w.is_free === true).length;
+    const paidCount = wifiLocations.filter((w) => w.is_free === false).length;
     const verifiedCount = wifiLocations.filter((w) => w.is_verified).length;
     const fastCount = wifiLocations.filter((w) => w.speedLabel === "Rất nhanh").length;
     if (!active)
@@ -195,8 +206,12 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
                 {w.name || w.ssid}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`text-xs px-1.5 py-0.5 rounded ${w.is_free ? "bg-green-100/30 text-green-600" : "bg-orange-100/30 text-orange-600"}`}>
-                  {w.is_free ? "Miễn phí" : "Trả tiền"}
+                <span className={`text-xs px-1.5 py-0.5 rounded ${w.is_free === true
+                ? "bg-green-100/30 text-green-600"
+                : w.is_free === false
+                    ? "bg-orange-100/30 text-orange-600"
+                    : "bg-muted/40 text-muted-foreground"}`}>
+                  {w.is_free === true ? "Miễn phí" : w.is_free === false ? "Trả tiền" : "Chưa rõ"}
                 </span>
                 <span className="text-muted-foreground/60">• {w.speedLabel}</span>
               </div>
@@ -269,15 +284,19 @@ function WifiOverlay({ result }: ToolOverlayProps) {
                 <div className="flex items-center gap-1.5 text-xs">
                   <Wifi className="w-3 h-3 text-amber-400"/>
                   <span className="font-bold">{loc.name || loc.ssid}</span>
-                  <span className="text-muted-foreground/70">• {loc.is_free ? "Miễn phí" : "Trả tiền"}</span>
+                  <span className="text-muted-foreground/70">• {loc.is_free === true ? "Miễn phí" : loc.is_free === false ? "Trả tiền" : "Chưa rõ"}</span>
                 </div>
               </Tooltip>
               <Popup>
                 <div className="space-y-1 max-w-xs">
                   <div className="font-medium text-sm">{loc.name || loc.ssid}</div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${loc.is_free ? "bg-green-100/30 text-green-600" : "bg-orange-100/30 text-orange-600"}`}>
-                      {loc.is_free ? "Miễn phí" : "Trả tiền"}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${loc.is_free === true
+                    ? "bg-green-100/30 text-green-600"
+                    : loc.is_free === false
+                        ? "bg-orange-100/30 text-orange-600"
+                        : "bg-muted/40 text-muted-foreground"}`}>
+                      {loc.is_free === true ? "Miễn phí" : loc.is_free === false ? "Trả tiền" : "Chưa rõ"}
                     </span>
                     <span className="text-xs text-muted-foreground/70">• {loc.speedLabel}</span>
                   </div>

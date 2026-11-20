@@ -22,10 +22,6 @@ async def get_suggestions():
     try:
         result = await llm_service.get_suggestions()
 
-        degraded = any(
-            isinstance(item, dict) and item.get("_degraded", False)
-            for item in result
-        ) if isinstance(result, list) else False
         reason = next(
             (item.get("_reason", "") for item in result
              if isinstance(item, dict) and "_reason" in item),
@@ -36,10 +32,17 @@ async def get_suggestions():
             {k: v for k, v in item.items() if k not in ("_degraded", "_reason")}
             for item in result if item and isinstance(item, dict)
         ] if isinstance(result, list) else []
+
+        marked = any(
+            isinstance(item, dict) and item.get("_degraded", False)
+            for item in result
+        ) if isinstance(result, list) else False
+
+        degraded = marked or not clean
         return SuggestionsResponse(
             suggestions=clean,
             degraded=degraded,
-            reason=reason,
+            reason=reason or ("Chưa có gợi ý nghề nghiệp từ AI — hãy thử lại sau." if not clean else None),
         )
     except Exception as e:
         print(f"Error getting AI suggestions: {e}")

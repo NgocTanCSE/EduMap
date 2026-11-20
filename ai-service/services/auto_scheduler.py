@@ -10,6 +10,11 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from datetime import datetime
 
+try:
+    from services import pg
+except Exception:
+    pg = None
+
 logger = logging.getLogger("auto_scheduler")
 
 
@@ -50,6 +55,14 @@ def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, An
 
 
 
+
+
+def _query(sql: str, pg_sql: Optional[str] = None,
+           params: Optional[Tuple] = None) -> List[Dict[str, Any]]:
+    """Read rows from the live database: Postgres in production, SQLite otherwise."""
+    if pg is not None and pg.is_postgres():
+        return pg.query(pg_sql or sql, params)
+    return _query_sqlite(sql, params)
 
 
 AUTO_REGIONS: List[Dict[str, Any]] = [
@@ -202,21 +215,27 @@ def _run_daily_insight() -> Dict[str, Any]:
 
     stats = {}
     try:
-        rows = _query_sqlite(
-            "SELECT year as d, metric_value, metric_type FROM education_stats ORDER BY d DESC LIMIT 50"
+        rows = _query(
+            "SELECT year as d, metric_value, metric_type FROM education_stats ORDER BY d DESC LIMIT 50",
+            "SELECT year AS d, CAST(metric_value AS DOUBLE PRECISION) AS metric_value, "
+            "metric_type FROM education_stats ORDER BY year DESC LIMIT 50",
         )
         if rows:
             stats["education_stats"] = rows
     except Exception:
         pass
     try:
-        poi_count = _query_sqlite("SELECT COUNT(*) as c FROM map_points")
+        poi_count = _query("SELECT COUNT(*) as c FROM map_points")
         if poi_count:
             stats["poi_count"] = poi_count[0]["c"]
     except Exception:
         pass
     try:
-        mat_count = _query_sqlite("SELECT COUNT(*) as c FROM learning_materials WHERE status='published'")
+        mat_count = _query(
+            "SELECT COUNT(*) as c FROM learning_materials WHERE status='published'",
+            "SELECT COUNT(*) as c FROM learning_materials "
+            "WHERE status::text = 'published' AND deleted_at IS NULL",
+        )
         if mat_count:
             stats["materials_count"] = mat_count[0]["c"]
     except Exception:
@@ -234,7 +253,7 @@ def _run_daily_insight() -> Dict[str, Any]:
 
 
 def _run_resource_exchange() -> Dict[str, Any]:
-    """Pre-filter resource↔request pairs from SQLite + LLM ranking.
+    """Pre-filter resource↔request pairs from the database + LLM ranking.
 
     Mirrors backend ResourceMatchService.matchResources() pre-filter:
     - resources.status='available', requests.status='open'
@@ -242,22 +261,35 @@ def _run_resource_exchange() -> Dict[str, Any]:
     - resource.condition >= request.preferred_min_condition
     - Cap at 15 pairs (MAX_PAIRS_TO_LLM)
 
-    Scoring (SQLite layer): proximity(40%) + need_level(25%) + condition(25%) + availability(10%).
+    Scoring (SQL layer): proximity(40%) + need_level(25%) + condition(25%) + availability(10%).
     Since we don't have real distances without the backend geo service, we use
     location overlap heuristic.
     """
     try:
-        resources = _query_sqlite(
+        resources = _query(
             "SELECT id, type, title, description, condition, location, lat, lng, available_from, cost, contact_method, is_verified, tags, status "
-            "FROM resources WHERE status='available' ORDER BY created_at DESC LIMIT 200"
+            "FROM resources WHERE status='available' ORDER BY created_at DESC LIMIT 200",
+            "SELECT id::text AS id, type, title, description, condition, location, "
+            "CAST(lat AS DOUBLE PRECISION) AS lat, CAST(lng AS DOUBLE PRECISION) AS lng, "
+            "CAST(available_from AS TEXT) AS available_from, "
+            "CAST(cost AS DOUBLE PRECISION) AS cost, contact_method, is_verified, "
+            "CAST(tags AS TEXT) AS tags, status "
+            "FROM resources WHERE status = 'available' "
+            "ORDER BY created_at DESC LIMIT 200",
         )
-        requests = _query_sqlite(
+        requests = _query(
             "SELECT id, need_type, title, description, urgency, location, lat, lng, deadline, preferred_min_condition, contact_method, tags, status "
-            "FROM resource_requests WHERE status='open' ORDER BY created_at DESC LIMIT 200"
+            "FROM resource_requests WHERE status='open' ORDER BY created_at DESC LIMIT 200",
+            "SELECT id::text AS id, need_type, title, description, urgency, location, "
+            "CAST(lat AS DOUBLE PRECISION) AS lat, CAST(lng AS DOUBLE PRECISION) AS lng, "
+            "CAST(deadline AS TEXT) AS deadline, preferred_min_condition, "
+            "contact_method, CAST(tags AS TEXT) AS tags, status "
+            "FROM resource_requests WHERE status = 'open' "
+            "ORDER BY created_at DESC LIMIT 200",
         )
     except Exception as e:
         return _wrap_result("resource_exchange", {"ranked_matches": [], "transport_plan": []},
-                           degraded=True, reason=f"SQLite query failed: {e}")
+                           degraded=True, reason=f"Không đọc được dữ liệu nguồn: {e}")
 
     pairs = []
     for req in requests:
@@ -368,7 +400,7 @@ def _run_resource_exchange() -> Dict[str, Any]:
 
 
 def _run_impact_match() -> Dict[str, Any]:
-    """Pre-filter need×sponsor pairs from SQLite + LLM ranking.
+    """Pre-filter need×sponsor pairs from the database + LLM ranking.
 
     Mirrors backend ImpactMatchService.rankMatches() pre-filter:
     - needs.status='open', sponsors.status='active'
@@ -376,17 +408,28 @@ def _run_impact_match() -> Dict[str, Any]:
     - Cap at 15 pairs
     """
     try:
-        needs = _query_sqlite(
+        needs = _query(
             "SELECT id, title, description, category, urgency, cost_estimate, location, status, tags "
-            "FROM sponsor_needs WHERE status='open' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50"
+            "FROM sponsor_needs WHERE status='open' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50",
+            "SELECT id::text AS id, title, description, category, urgency, "
+            "CAST(cost_estimate AS DOUBLE PRECISION) AS cost_estimate, location, "
+            "status, CAST(tags AS TEXT) AS tags "
+            "FROM sponsor_needs WHERE status = 'open' AND deleted_at IS NULL "
+            "ORDER BY created_at DESC LIMIT 50",
         )
-        sponsors = _query_sqlite(
+        sponsors = _query(
             "SELECT id, name, description, focus_areas, budget_amount, budget_currency, location, status, is_verified "
-            "FROM sponsor_profiles WHERE status='active' ORDER BY budget_amount DESC LIMIT 50"
+            "FROM sponsor_profiles WHERE status='active' ORDER BY budget_amount DESC LIMIT 50",
+            "SELECT id::text AS id, name, description, "
+            "CAST(focus_areas AS TEXT) AS focus_areas, "
+            "CAST(budget_amount AS DOUBLE PRECISION) AS budget_amount, "
+            "budget_currency, location, status, is_verified "
+            "FROM sponsor_profiles WHERE status = 'active' "
+            "ORDER BY budget_amount DESC LIMIT 50",
         )
     except Exception as e:
         return _wrap_result("impact_match", {"ranked_matches": [], "pre_filter_summary": {}},
-                           degraded=True, reason=f"SQLite query failed: {e}")
+                           degraded=True, reason=f"Không đọc được dữ liệu nguồn: {e}")
 
     pairs = []
     for need in needs:

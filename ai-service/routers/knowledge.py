@@ -13,8 +13,8 @@ _kg_loaded = False
 
 def _get_kg():
     """Lazy-load the KnowledgeGraphService singleton.
-    A missing sqlite3 / unavailable DB must NOT prevent the ai-service from
-    starting — the router returns 503 instead of crashing import."""
+    An unreachable database must NOT prevent the ai-service from starting —
+    the router returns 503 instead of crashing import."""
     global _kg, _kg_loaded
     if not _kg_loaded:
         try:
@@ -63,7 +63,7 @@ async def get_graph(
 
     Trả về toàn bộ knowledge graph dưới dạng {nodes, edges, meta}.
 
-    Dữ liệu nguồn: các bảng SQLite đã seed (map_points, scholarships,
+    Dữ liệu nguồn: các bảng nội dung thật (map_points, scholarships,
     opportunities, career_paths, ...). Graph được xây dựng bởi
     KnowledgeGraphService.seed_graph() — chạy tự động đầu tiên hoặc qua
     POST /api/ai/knowledge/seed.
@@ -221,7 +221,7 @@ async def sync_graph():
 async def seed_graph(background: bool = False):
     """POST /api/ai/knowledge/seed
 
-    Xây dựng lại knowledge graph từ các bảng SQLite nguồn (map_points,
+    Xây dựng lại knowledge graph từ các bảng nguồn (map_points,
     scholarships, opportunities, ...). Idempotent — xóa và rebuild toàn bộ
     kg_nodes / kg_edges.
     """

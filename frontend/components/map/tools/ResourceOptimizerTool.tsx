@@ -47,7 +47,10 @@ export function ResourceOptimizerPanel({ viewport, result, onResult, loading, se
             const json = await res.json();
             const data = unwrapApiResponse<any>(json);
             onResult(data);
-            if (!data?.metadata?.degraded) {
+            if (data?.degraded || data?.status === "degraded") {
+                toast.warning(data?.reason || "Chưa có điểm nhu cầu thật trong vùng.");
+            }
+            else {
                 toast.success("Tối ưu vị trí thành công.");
             }
         }
@@ -65,10 +68,11 @@ export function ResourceOptimizerPanel({ viewport, result, onResult, loading, se
             fetchOptimization();
     }, [active]);
     const plans = useMemo(() => result?.plans || {}, [result]);
-    const gaps = useMemo(() => (result?.gaps || []), [result]);
     const summary = useMemo(() => result?.summary || {}, [result]);
-    const meta = useMemo(() => result?.metadata || {}, [result]);
     const features = useMemo(() => result?.features || [], [result]);
+    const meta = useMemo(() => result?.metadata || {}, [result]);
+    const degraded = !!(result?.degraded || result?.status === "degraded");
+    const degradedReason = result?.reason || result?.summary?.error || "Dữ liệu đang trong chế độ giảm tốc.";
     return (<div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         Tối ưu vị trí cơ sở giáo dụng mới bằng MCLP (Maximizing Coverage
@@ -92,9 +96,9 @@ export function ResourceOptimizerPanel({ viewport, result, onResult, loading, se
         </button>
       </div>
 
-      {meta.degraded && (<div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+      {degraded && (<div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5"/>
-          <span>{meta.reason || "Dữ liệu đang trong chế độ giảm tốc."}</span>
+          <span>{degradedReason}</span>
         </div>)}
 
       {result && (<div className="grid grid-cols-2 gap-2 text-center">
@@ -108,7 +112,7 @@ export function ResourceOptimizerPanel({ viewport, result, onResult, loading, se
           </div>
         </div>)}
 
-      {Object.keys(plans).length > 0 && (<div className="space-y-2">
+      {Object.keys(plans).length > 0 && features.length > 0 && (<div className="space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
             <Layers className="w-3.5 h-3.5"/>
             <span>So sánh kế hoạch</span>

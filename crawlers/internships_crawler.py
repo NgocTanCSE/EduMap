@@ -1,5 +1,5 @@
 
-import os, re, sys, datetime
+import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
@@ -11,7 +11,6 @@ from tavily_parse import parse_tavily_jobs, clean_text, _location_layer
 
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-_DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
 _TAVILY_INTERN_QUERIES = [
     "tuyển thực tập sinh lập trình viên Đồng Nai 2025",
@@ -44,8 +43,8 @@ def _intern_row(title, company, description, field, tags, salary, logo=None, dea
     desc = clean_text(description or "")
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
-    if deadline is None or not in_year_scope(deadline):
-        deadline = _DEFAULT_DEADLINE
+    if deadline and not in_year_scope(deadline):
+        deadline = None
     return {
         "title": (title or "")[:255],
         "company_id": None,
@@ -56,9 +55,9 @@ def _intern_row(title, company, description, field, tags, salary, logo=None, dea
         "field": (str(field)[:100] if field else "internship"),
         "location_point": None,
         "salary_range": salary,
-        "duration": "Flexible",
-        "requirements": "Remote-friendly internship. See description for details.",
-        "benefits": "Remote work, flexible schedule, skill development.",
+        "duration": None,
+        "requirements": None,
+        "benefits": None,
         "deadline": deadline,
         "application_count": 0,
         "status": "open",

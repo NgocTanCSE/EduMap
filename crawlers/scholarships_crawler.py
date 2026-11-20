@@ -12,7 +12,6 @@ from tavily_parse import parse_date_or_default, clean_text, extract_deadline, co
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-_DEFAULT_DEADLINE = NOW + datetime.timedelta(days=30)
 
 _TAVILY_SCHOLARSHIP_QUERIES = [
     "học bổng sinh viên Đồng Nai 2025",
@@ -56,14 +55,6 @@ def parse_date(s):
     return None
 
 
-def _scope_deadline(d):
-    """Default deadline to end-of-crawl-year when the raw date falls outside the
-    2-year window or is missing, keeping the scholarship visible."""
-    if d and in_year_scope(d.date().isoformat()):
-        return d
-    return NOW + datetime.timedelta(days=30)
-
-
 def _scholarship_row(title, description, provider, deadline=None, image_url=None,
                      apply_url="", source_url="", query=None, published_at=None):
     """Map one Tavily search result to a scholarships row dict."""
@@ -76,8 +67,8 @@ def _scholarship_row(title, description, provider, deadline=None, image_url=None
         dl_str = extract_deadline(clean_text(description) or "")
         if dl_str:
             deadline_dt = parse_date(dl_str)
-    if not deadline_dt or not in_year_scope(deadline_dt.date().isoformat()):
-        deadline_dt = _DEFAULT_DEADLINE
+    if deadline_dt and not in_year_scope(deadline_dt.date().isoformat()):
+        deadline_dt = None
     return {
         "title": title[:255],
         "description": desc,

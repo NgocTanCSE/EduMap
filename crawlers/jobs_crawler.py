@@ -1,5 +1,5 @@
 
-import os, re, sys, datetime
+import os, re, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, ensure_column)  
 from crawl_scope import (  
@@ -11,7 +11,6 @@ from tavily_parse import parse_tavily_jobs, clean_text
 
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-_DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
 _TAVILY_JOB_QUERIES = [
     "tuyển dụng lập trình viên phần mềm Đồng Nai 2025",
@@ -75,7 +74,7 @@ def _base_row(title, company, location, description, tags, job_type, salary, log
         "salary_range": clean_text(str(salary))[:100] if salary else "Thỏa thuận",
         "required_skills": Jsonb(list(tags or [])),
         "experience_level": "any",
-        "application_deadline": _DEFAULT_DEADLINE.date().isoformat(),
+        "application_deadline": None,
         "views": 0,
         "status": "active",
         "image_url": logo,

@@ -8,7 +8,18 @@ import re
 import sqlite3
 import threading
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+try:
+    from services import pg
+except Exception:
+    pg = None
+
+try:
+    from psycopg2.extras import RealDictCursor
+except Exception:
+    RealDictCursor = None
 
 
 
@@ -75,35 +86,204 @@ _NLP_DOWN_UNTIL = 0.0
 _NLP_COOLDOWN = 300
 
 
+class _Row(dict):
+    """Dict row that also supports positional access (``row[0]``)."""
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+
+class _PgResult:
+    def __init__(self, rows: List[_Row]):
+        self._rows = rows
+
+    def fetchall(self) -> List[_Row]:
+        return self._rows
+
+    def fetchone(self) -> Optional[_Row]:
+        return self._rows[0] if self._rows else None
+
+
+class _PgConn:
+    """Minimal DB-API shim so the graph code runs on Postgres unchanged.
+
+    Translates the SQLite ``?`` placeholder to ``%s`` and returns dict rows
+    that behave like ``sqlite3.Row``. Statements are sent unnamed so
+    Supabase's transaction-mode PgBouncer never reuses a prepared statement.
+    """
+
+    def __init__(self, pool):
+        self._pool = pool
+        self._conn = pool.getconn()
+
+    def execute(self, sql: str, params=None) -> _PgResult:
+        translated = sql.replace("?", "%s")
+        with self._conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(translated, tuple(params) if params else None)
+            rows: List[_Row] = []
+            if cur.description is not None:
+                rows = [_Row(r) for r in cur.fetchall()]
+        return _PgResult(rows)
+
+    def executescript(self, script: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(script)
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def close(self) -> None:
+        try:
+            self._conn.rollback()
+        except Exception:
+            pass
+        self._pool.putconn(self._conn)
+
+
+PG_SCHEMA = """
+CREATE TABLE IF NOT EXISTS kg_nodes (
+    id            TEXT PRIMARY KEY,
+    type          TEXT NOT NULL,
+    source_table  TEXT NOT NULL,
+    source_id     TEXT,
+    name          TEXT NOT NULL,
+    description   TEXT,
+    lat           DOUBLE PRECISION,
+    lng           DOUBLE PRECISION,
+    city          TEXT,
+    province      TEXT,
+    url           TEXT,
+    metadata_json TEXT,
+    confidence    DOUBLE PRECISION DEFAULT 1.0,
+    created_at    TEXT NOT NULL DEFAULT now()::text
+);
+CREATE TABLE IF NOT EXISTS kg_edges (
+    id            TEXT PRIMARY KEY,
+    source_id     TEXT NOT NULL,
+    target_id     TEXT NOT NULL,
+    edge_type     TEXT NOT NULL,
+    weight        DOUBLE PRECISION DEFAULT 1.0,
+    metadata_json TEXT,
+    created_at    TEXT NOT NULL DEFAULT now()::text,
+    UNIQUE(source_id, target_id, edge_type)
+);
+CREATE TABLE IF NOT EXISTS kg_extraction_review (
+    id             TEXT PRIMARY KEY,
+    source_text    TEXT NOT NULL,
+    extracted_json TEXT NOT NULL,
+    confidence     DOUBLE PRECISION DEFAULT 0.0,
+    status         TEXT NOT NULL DEFAULT 'pending',
+    reviewer_note  TEXT,
+    created_at     TEXT NOT NULL DEFAULT now()::text,
+    updated_at     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kg_nodes_type ON kg_nodes(type);
+CREATE INDEX IF NOT EXISTS idx_kg_nodes_source ON kg_nodes(source_table, source_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_source ON kg_edges(source_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_target ON kg_edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_type ON kg_edges(edge_type);
+CREATE INDEX IF NOT EXISTS idx_kg_review_status ON kg_extraction_review(status);
+"""
+
+
+SQLITE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS kg_nodes (
+    id            TEXT PRIMARY KEY,
+    type          TEXT NOT NULL,
+    source_table  TEXT NOT NULL,
+    source_id     TEXT,
+    name          TEXT NOT NULL,
+    description   TEXT,
+    lat           REAL,
+    lng           REAL,
+    city          TEXT,
+    province      TEXT,
+    url           TEXT,
+    metadata_json TEXT,
+    confidence    REAL DEFAULT 1.0,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS kg_edges (
+    id            TEXT PRIMARY KEY,
+    source_id     TEXT NOT NULL,
+    target_id     TEXT NOT NULL,
+    edge_type     TEXT NOT NULL,
+    weight        REAL DEFAULT 1.0,
+    metadata_json TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(source_id, target_id, edge_type)
+);
+CREATE TABLE IF NOT EXISTS kg_extraction_review (
+    id            TEXT PRIMARY KEY,
+    source_text   TEXT NOT NULL,
+    extracted_json TEXT NOT NULL,
+    confidence    REAL DEFAULT 0.0,
+    status        TEXT NOT NULL DEFAULT 'pending',
+    reviewer_note TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kg_nodes_type ON kg_nodes(type);
+CREATE INDEX IF NOT EXISTS idx_kg_nodes_source ON kg_nodes(source_table, source_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_source ON kg_edges(source_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_target ON kg_edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_kg_edges_type ON kg_edges(edge_type);
+CREATE INDEX IF NOT EXISTS idx_kg_review_status ON kg_extraction_review(status);
+"""
+
+
 class KnowledgeGraphService:
-    """Builds and queries the EduMap knowledge graph stored in SQLite.
+    """Builds and queries the EduMap knowledge graph.
 
     The graph uses an *adjacency-list* model:
       ``kg_nodes``  (id, type, source_table, source_id, name, description, metadata_json, created_at)
       ``kg_edges``  (id, source_id, target_id, edge_type, weight, metadata_json, created_at)
       ``kg_extraction_review`` (id, source_text, extracted_json, status, created_at)
 
-    All public methods open a *fresh* SQLite connection (check_same_thread
-    safety) and are safe to call from FastAPI worker threads.
+    Production runs on Postgres (Supabase); the bundled SQLite file is only
+    used when ``DB_TYPE=sqlite``. Every public method opens a fresh connection
+    (or borrows one from the pool) and is safe to call from FastAPI worker
+    threads.
     """
 
     def __init__(self, db_path: str = None):
         self.db_path = db_path or os.getenv("DB_SQLITE_PATH", DB_PATH)
+        self._is_pg = bool(
+            pg is not None
+            and pg.is_postgres()
+            and (pg.configured() or db_path is None)
+        )
+        self._available = False
+        self._next_retry = 0.0
+        self._retry_cooldown = 60.0
+        self._init_schema()
 
+    def _ensure(self) -> bool:
+        """Retry the schema bootstrap when the last attempt failed.
 
-
-        self._available = os.getenv("DB_TYPE", "sqlite") == "sqlite"
-        if self._available:
+        A boot-time DB hiccup must not disable the feature until the next
+        container restart, so failures are retried at most once a minute.
+        """
+        if not self._available and time.monotonic() >= self._next_retry:
             self._init_schema()
-        else:
-            self._available = False
+            if not self._available:
+                self._next_retry = time.monotonic() + self._retry_cooldown
+        return self._available
 
-
-
-    def _connect(self) -> sqlite3.Connection:
-        """Open a SQLite connection (row factory + foreign keys on)."""
-        if not self._available:
-            raise RuntimeError("KnowledgeGraphService requires SQLite; not supported on Postgres yet.")
+    def _connect(self):
+        """Open a connection: pooled Postgres in production, SQLite otherwise."""
+        if self._is_pg:
+            pool = pg.borrow()
+            if pool is None:
+                raise RuntimeError("Postgres pool unavailable for the knowledge graph.")
+            return _PgConn(pool)
+        if not self.db_path:
+            raise RuntimeError("Knowledge graph storage is not configured.")
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
@@ -114,66 +294,30 @@ class KnowledgeGraphService:
 
         Idempotent — safe to call on every startup / every request.
         """
-        if not self._available:
-            return
-        conn = self._connect()
         try:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS kg_nodes (
-                    id            TEXT PRIMARY KEY,
-                    type          TEXT NOT NULL,
-                    source_table  TEXT NOT NULL,
-                    source_id     TEXT,
-                    name          TEXT NOT NULL,
-                    description   TEXT,
-                    lat           REAL,
-                    lng           REAL,
-                    city          TEXT,
-                    province      TEXT,
-                    url           TEXT,
-                    metadata_json TEXT,
-                    confidence    REAL DEFAULT 1.0,
-                    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
-                );
-
-                CREATE TABLE IF NOT EXISTS kg_edges (
-                    id            TEXT PRIMARY KEY,
-                    source_id     TEXT NOT NULL,
-                    target_id     TEXT NOT NULL,
-                    edge_type     TEXT NOT NULL,
-                    weight        REAL DEFAULT 1.0,
-                    metadata_json TEXT,
-                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-                    UNIQUE(source_id, target_id, edge_type)
-                );
-
-                CREATE TABLE IF NOT EXISTS kg_extraction_review (
-                    id            TEXT PRIMARY KEY,
-                    source_text   TEXT NOT NULL,
-                    extracted_json TEXT NOT NULL,
-                    confidence    REAL DEFAULT 0.0,
-                    status        TEXT NOT NULL DEFAULT 'pending',
-                    reviewer_note TEXT,
-                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at    TEXT
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_kg_nodes_type ON kg_nodes(type);
-                CREATE INDEX IF NOT EXISTS idx_kg_nodes_source ON kg_nodes(source_table, source_id);
-                CREATE INDEX IF NOT EXISTS idx_kg_edges_source  ON kg_edges(source_id);
-                CREATE INDEX IF NOT EXISTS idx_kg_edges_target  ON kg_edges(target_id);
-                CREATE INDEX IF NOT EXISTS idx_kg_edges_type    ON kg_edges(edge_type);
-                CREATE INDEX IF NOT EXISTS idx_kg_review_status ON kg_extraction_review(status);
-                """
-            )
+            conn = self._connect()
+        except Exception as e:
+            print(f"[knowledge_graph] storage unavailable: {e}")
+            self._available = False
+            return
+        try:
+            conn.executescript(PG_SCHEMA if self._is_pg else SQLITE_SCHEMA)
             conn.commit()
+            self._available = True
         except Exception as e:
             print(f"[knowledge_graph] _init_schema failed: {e}")
+            self._available = False
         finally:
             conn.close()
 
 
+
+    def _fetch(self, conn, sql: str, pg_sql: Optional[str] = None, params=None):
+        """Run a source-table query with the dialect-specific variant."""
+        statement = pg_sql if (self._is_pg and pg_sql) else sql
+        if params is None:
+            return conn.execute(statement).fetchall()
+        return conn.execute(statement, params).fetchall()
 
     def seed_graph(self) -> Dict[str, Any]:
         """Build the knowledge graph from the existing SQLite content tables.
@@ -186,8 +330,9 @@ class KnowledgeGraphService:
 
         Returns a summary dict with counts.
         """
-        if not self._available:
-            return {"nodes": 0, "edges": 0, "status": "degraded", "reason": "SQLite-only feature; Postgres not supported yet."}
+        if not self._ensure():
+            return {"nodes": 0, "edges": 0, "status": "degraded",
+                    "reason": "Không kết nối được CSDL tri thức."}
         conn = self._connect()
         summary: Dict[str, int] = {"nodes": 0, "edges": 0, "skipped": 0}
         try:
@@ -223,11 +368,14 @@ class KnowledgeGraphService:
 
 
 
-    def _seed_nodes_map_points(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
-            """SELECT id, name, description, type_id, address, city, province,
-               province, verified FROM map_points WHERE deleted_at IS NULL"""
-        ).fetchall()
+    def _seed_nodes_map_points(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
+            """SELECT id, name, description, type_id, address, city, province, verified
+               FROM map_points WHERE deleted_at IS NULL""",
+            """SELECT id::text AS id, name, description, type_id, address, city, province,
+                      verified FROM map_points WHERE deleted_at IS NULL""",
+        )
         for r in rows:
             node_type = MAP_POINT_TYPE_MAP.get(int(r["type_id"] or 0), "school")
             if node_type in ("cafe", "restaurant", "bookstore", "green", "wifi"):
@@ -240,11 +388,17 @@ class KnowledgeGraphService:
                               r["city"], r["province"], None,
                               {"type_id": r["type_id"], "verified": r["verified"]}, s)
 
-    def _seed_nodes_scholarships(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
+    def _seed_nodes_scholarships(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
             "SELECT id, title, description, provider, location, value_amount, deadline, "
-            "eligibility_criteria, apply_url FROM scholarships WHERE deleted_at IS NULL"
-        ).fetchall()
+            "eligibility_criteria, apply_url FROM scholarships WHERE deleted_at IS NULL",
+            "SELECT id::text AS id, title, description, provider, location, "
+            "CAST(value_amount AS TEXT) AS value_amount, "
+            "CAST(deadline AS TEXT) AS deadline, "
+            "CAST(eligibility_criteria AS TEXT) AS eligibility_criteria, apply_url "
+            "FROM scholarships WHERE deleted_at IS NULL",
+        )
         for r in rows:
             meta = {
                 "provider": r["provider"],
@@ -256,11 +410,15 @@ class KnowledgeGraphService:
                               r["title"], r["description"], None, None,
                               None, None, r["apply_url"], meta, s)
 
-    def _seed_nodes_opportunities(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
+    def _seed_nodes_opportunities(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
             "SELECT id, title, description, type, organization, address, deadline, "
-            "url, field_tags FROM opportunities"
-        ).fetchall()
+            "url, field_tags FROM opportunities",
+            "SELECT id::text AS id, title, description, CAST(type AS TEXT) AS type, "
+            "organization, address, CAST(deadline AS TEXT) AS deadline, url, "
+            "CAST(field_tags AS TEXT) AS field_tags FROM opportunities",
+        )
         for r in rows:
             meta = {
                 "opportunity_type": r["type"],
@@ -272,10 +430,13 @@ class KnowledgeGraphService:
                               r["title"], r["description"], None, None,
                               None, None, r["url"], meta, s)
 
-    def _seed_nodes_career_paths(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
-            "SELECT id, title, field, description, skills_required FROM career_paths"
-        ).fetchall()
+    def _seed_nodes_career_paths(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
+            "SELECT id, title, field, description, skills_required FROM career_paths",
+            "SELECT id::text AS id, title, field, description, "
+            "CAST(skills_required AS TEXT) AS skills_required FROM career_paths",
+        )
         for r in rows:
             meta = {
                 "field": r["field"],
@@ -285,11 +446,15 @@ class KnowledgeGraphService:
                               r["title"], r["description"], None, None,
                               None, None, None, meta, s)
 
-    def _seed_nodes_learning_materials(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
+    def _seed_nodes_learning_materials(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
             "SELECT id, title, description, type, subject, tags, file_url "
-            "FROM learning_materials WHERE deleted_at IS NULL"
-        ).fetchall()
+            "FROM learning_materials WHERE deleted_at IS NULL",
+            "SELECT id::text AS id, title, description, type, subject, "
+            "CAST(tags AS TEXT) AS tags, file_url "
+            "FROM learning_materials WHERE deleted_at IS NULL",
+        )
         for r in rows:
             meta = {
                 "material_type": r["type"],
@@ -300,11 +465,15 @@ class KnowledgeGraphService:
                               r["title"], r["description"], None, None,
                               None, None, r["file_url"], meta, s)
 
-    def _seed_nodes_internships(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
+    def _seed_nodes_internships(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
             "SELECT id, title, description, company_id, field, salary_range, "
-            "deadline, requirements FROM internships"
-        ).fetchall()
+            "deadline, requirements FROM internships",
+            "SELECT id::text AS id, title, description, company_id::text AS company_id, "
+            "field, salary_range, CAST(deadline AS TEXT) AS deadline, requirements "
+            "FROM internships",
+        )
         for r in rows:
             meta = {
                 "company_id": r["company_id"],
@@ -317,11 +486,14 @@ class KnowledgeGraphService:
                               r["title"], r["description"], None, None,
                               None, None, None, meta, s)
 
-    def _seed_nodes_international_programs(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
-        rows = conn.execute(
+    def _seed_nodes_international_programs(self, conn, s: Dict[str, int]) -> None:
+        rows = self._fetch(
+            conn,
             "SELECT id, title, type, description, host_country, organization, "
-            "apply_url, benefits FROM international_programs"
-        ).fetchall()
+            "apply_url, benefits FROM international_programs",
+            "SELECT id::text AS id, title, type, description, host_country, organization, "
+            "apply_url, CAST(benefits AS TEXT) AS benefits FROM international_programs",
+        )
         for r in rows:
             meta = {
                 "program_type": r["type"],
@@ -339,9 +511,11 @@ class KnowledgeGraphService:
         international_programs / scholarships.provider (which act as
         de-facto sponsors even when the organizations table is empty)."""
 
-        org_rows = conn.execute(
-            "SELECT id, name, description, website_url FROM organizations"
-        ).fetchall()
+        org_rows = self._fetch(
+            conn,
+            "SELECT id, name, description, website_url FROM organizations",
+            "SELECT id::text AS id, name, description, website_url FROM organizations",
+        )
         for r in org_rows:
             meta = {"website_url": r["website_url"]}
             self._insert_node(conn, r["id"], "sponsor", "organizations", r["id"],
@@ -357,10 +531,13 @@ class KnowledgeGraphService:
             ("opportunities", "id", "title", "organization", "url"),
         ]
         for table, id_col, name_col, org_col, url_col in sponsor_sources:
-            rows = conn.execute(
-                f"SELECT {id_col} AS src_id, {name_col} AS src_name, {org_col} AS org, {url_col} AS url "
-                f"FROM {table}"
-            ).fetchall()
+            rows = self._fetch(
+                conn,
+                f"SELECT {id_col} AS src_id, {name_col} AS src_name, "
+                f"{org_col} AS org, {url_col} AS url FROM {table}",
+                f"SELECT {id_col}::text AS src_id, {name_col} AS src_name, "
+                f"{org_col} AS org, {url_col} AS url FROM {table}",
+            )
             for r in rows:
                 org_name = (r["org"] or "").strip()
                 if not org_name or org_name in seen_sponsors:
@@ -589,7 +766,7 @@ class KnowledgeGraphService:
                  confidence),
             )
             s["nodes"] += 1
-        except sqlite3.IntegrityError:
+        except Exception:
             pass
 
     def _insert_edge(self, conn, source_id, target_id, edge_type,
@@ -600,9 +777,9 @@ class KnowledgeGraphService:
             return
         try:
             conn.execute(
-                "INSERT OR IGNORE INTO kg_edges "
+                "INSERT INTO kg_edges "
                 "(id, source_id, target_id, edge_type, weight, metadata_json) "
-                "VALUES (?,?,?,?,?,?)",
+                "VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                 (self._edge_id(source_id, target_id, edge_type), source_id, target_id,
                  edge_type, weight,
                  json.dumps(metadata, ensure_ascii=False) if metadata else None),
@@ -663,7 +840,7 @@ class KnowledgeGraphService:
         total node count to keep the GraphQL payload small for the force
         layout on the host.
         """
-        if not self._available:
+        if not self._ensure():
             return {"nodes": [], "edges": [], "meta": {"degraded": True}}
         conn = self._connect()
         try:
@@ -719,7 +896,7 @@ class KnowledgeGraphService:
         limit : int
             Max neighbor nodes returned.
         """
-        if not self._available:
+        if not self._ensure():
             return {"start_node": None, "neighbors": [], "edges": [], "meta": {"degraded": True}}
         depth = min(max(1, int(depth or 1)), 1)
 
@@ -795,7 +972,7 @@ class KnowledgeGraphService:
 
         Returns: {entities: [...], linked_nodes: [...], confidence: float, degraded: bool}
         """
-        if not self._available:
+        if not self._ensure():
             return {"entities": [], "linked_nodes": [], "confidence": 0, "degraded": True}
         if not text or not text.strip():
             return {"entities": [], "linked_nodes": [], "confidence": 0.0, "degraded": True}
@@ -865,25 +1042,21 @@ Chỉ trả về JSON, không giải thích thêm.
         """Rule-based entity extraction (deterministic keyword matching).
         Falls back when LLM is unavailable so the feature never goes dark."""
         entities = []
-        conn = self._connect()
-        try:
-            patterns = [
-                ("university", r"đại học\s+\S+|trường\s+\S+"),
-                ("school", r"thpt\s+\S+|trường trung học"),
-                ("scholarship", r"học bổng\s+\S*"),
-                ("sponsor", r"(chính phủ|bộ|gdpn|vnđ|tổ chức)"),
-                ("skill", r"(python|java|ai|iot|data|Marketing|Kỹ thuật)"),
-                ("region", r"(đồng nai|tp\.?\s*hồ chí minh|hà nội|đà nẵng|cần thơ)"),
-            ]
-            for ent_type, pattern in patterns:
-                for m in re.finditer(pattern, text, re.IGNORECASE):
-                    entities.append({
-                        "text": m.group().strip(),
-                        "type": ent_type,
-                        "confidence": 0.3,
-                    })
-        finally:
-            conn.close()
+        patterns = [
+            ("university", r"đại học\s+\S+|trường\s+\S+"),
+            ("school", r"thpt\s+\S+|trường trung học"),
+            ("scholarship", r"học bổng\s+\S*"),
+            ("sponsor", r"(chính phủ|bộ|gdpn|vnđ|tổ chức)"),
+            ("skill", r"(python|java|ai|iot|data|Marketing|Kỹ thuật)"),
+            ("region", r"(đồng nai|tp\.?\s*hồ chí minh|hà nội|đà nẵng|cần thơ)"),
+        ]
+        for ent_type, pattern in patterns:
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                entities.append({
+                    "text": m.group().strip(),
+                    "type": ent_type,
+                    "confidence": 0.3,
+                })
 
         seen = set()
         uniq = []
@@ -931,8 +1104,13 @@ Chỉ trả về JSON, không giải thích thêm.
         try:
             review_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"kg_review:{text[:200]}"))
             conn.execute(
-                "INSERT OR REPLACE INTO kg_extraction_review "
-                "(id, source_text, extracted_json, confidence, status) VALUES (?,?,?,?,?)",
+                "INSERT INTO kg_extraction_review "
+                "(id, source_text, extracted_json, confidence, status) VALUES (?,?,?,?,?) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "source_text = excluded.source_text, "
+                "extracted_json = excluded.extracted_json, "
+                "confidence = excluded.confidence, "
+                "status = excluded.status",
                 (review_id, text, json.dumps(result, ensure_ascii=False),
                  result.get("confidence", 0.0), "pending"),
             )
@@ -956,7 +1134,7 @@ Chỉ trả về JSON, không giải thích thêm.
 
         This implements the "Gợi ý tài trợ/đối tác phù hợp" output from the idea spec.
         """
-        if not self._available:
+        if not self._ensure():
             return []
         suggestions: List[Dict[str, Any]] = []
         conn = self._connect()
@@ -1040,6 +1218,8 @@ Chỉ trả về JSON, không giải thích thêm.
 
     def get_extraction_reviews(self, status: str = "pending", limit: int = 100) -> List[Dict]:
         """Return NLP extractions queued for human review."""
+        if not self._ensure():
+            return []
         conn = self._connect()
         try:
             rows = conn.execute(
@@ -1065,14 +1245,14 @@ Chỉ trả về JSON, không giải thích thêm.
 
     def approve_extraction(self, review_id: str, note: str = None) -> bool:
         """Mark an extraction as approved (reviewer action)."""
-        if not self._available:
+        if not self._ensure():
             return []
         conn = self._connect()
         try:
             conn.execute(
                 "UPDATE kg_extraction_review SET status='approved', reviewer_note=?, "
-                "updated_at=datetime('now') WHERE id=?",
-                (note, review_id),
+                "updated_at=? WHERE id=?",
+                (note, datetime.utcnow().isoformat(timespec="seconds"), review_id),
             )
             conn.commit()
             return True
@@ -1126,8 +1306,6 @@ Chỉ trả về JSON, không giải thích thêm.
     @staticmethod
     def _parse_json(text: str) -> Optional[Any]:
         """Parse JSON from an LLM reply (handles markdown fences)."""
-        if not self._available:
-            return False
         if not text:
             return None
         cleaned = text.strip()

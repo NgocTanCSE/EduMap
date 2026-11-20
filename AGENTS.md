@@ -2298,3 +2298,106 @@ random hay bằng LLM.
 4. Smoketest sau deploy: `/api/scholarships` (có `image_url`/`source_url`),
    `/api/community/posts` (có `source_url`, filter không 500), `/api/map/pois`
    (POI có `photos`), `/map` → "Phân tích AI khu vực" (số liệu khớp POI thật).
+
+## 27. P2 de-hallucination + cầu Postgres cho ai-service (2026-11-20)
+
+P0 (chặn nguồn) và P1 (nguồn thật) đã xong. P2 xoá nốt các giá trị **tự sinh**
+còn lại và sửa một lỗi kiến trúc lớn: **ai-service đọc SQLite trong khi
+production là Postgres (Supabase)**, nên impact measurement, climate guardian,
+career/mentor fallback, data-quality, question-gap, analytics và knowledge graph
+đều trả rỗng trong production (baseline 70% giả đã che mất lỗi này).
+
+### 27.1 Cầu Postgres dùng chung — `ai-service/services/pg.py`
+
+- `ThreadedConnectionPool` (1..`AI_DB_POOL_MAX`, mặc định 4), `RealDictCursor`,
+  `connect_timeout` (`DB_CONNECT_TIMEOUT`, mặc định 10), `sslmode`
+  (`DB_SSLMODE`, mặc định `prefer`).
+- `is_postgres()` — `DB_TYPE != 'sqlite'` (mặc định postgres);
+  `configured()` — có `DB_HOST` + psycopg2; `borrow()` — trả pool cho lớp
+  adapter.
+- `query()` / `scalar()` **không bao giờ raise**: thiếu cấu hình, connection
+  refused hay SQL sai đều trả `[]`/`None`. Pool chỉ bị reset khi lỗi
+  `OperationalError`/`InterfaceError` (connection-level), không reset vì một
+  câu SQL sai.
+- Câu lệnh gửi **unnamed statement** (không prepared) để PgBouncer của Supabase
+  (transaction mode) không gặp `prepared statement already exists`.
+- Quy ước SQL: `id::text`, `CAST(jsonb AS TEXT)`, `CAST(enum AS TEXT)`,
+  `CAST(timestamp AS TEXT)`, `CAST(numeric AS DOUBLE PRECISION)`,
+  `ST_AsText(geom)`; join/predicate so sánh id dạng `::text`.
+  `locations` **không có** `deleted_at` (khác `map_points`).
+
+### 27.2 Bỏ dữ liệu tự sinh còn lại
+
+| Vị trí | Trước | Sau |
+|---|---|---|
+| `services/resource_optimizer.py` | `_default_demand_points()` sinh 24 điểm nhu cầu quanh tâm | xoá hàm; `demand_points` rỗng → `degraded` + FeatureCollection rỗng + lý do tiếng Việt |
+| `services/impact_measure.py` | baseline "trước triển khai" = dân số × 0.70 | không còn baseline giả: `has_baseline=false`, `access_rate`/`user_count`/`diff`/`people_in_radius`/`impact_score`/`confidence_interval` = `null`; narrative template nêu rõ thiếu dữ liệu nền, **không gọi LLM** khi không có baseline |
+| `models/impact_measure_models.py` + `routers/impact_measure.py` | field `float` bắt buộc, trả 0 | `Optional[...]`, thêm `has_baseline`, degraded trả `null` chứ không trả 0 |
+| `llm_service._suggestions_fallback` | 3 nghề bịa kèm `match_score` 85/78/72 | trả `[]`; `routers/suggestions.py` đánh dấu `degraded=true` + lý do |
+| `llm_service._chat_fallback_reply` | **lỗi thật**: `def` bị lặp (thụt 5 space) làm hàm trả `None` → `_strip_markdown(None)` crash toàn bộ chat fallback | xoá dòng lặp; fallback trả chuỗi 327 ký tự |
+| `crawlers/scholarships_crawler.py` | deadline thiếu → `now + 30 ngày` | deadline không xác định/ngoài phạm vi → `NULL` (UI hiện "Xem trang chính thức") |
+| `crawlers/jobs_crawler.py`, `crawlers/internships_crawler.py` | `application_deadline`/`deadline` = 31/12 năm crawl; internship `duration="Flexible"`, `requirements`/`benefits` tự viết | `NULL` hết |
+| `crawlers/tavily_parse.py` | `parse_tavily_jobs` luôn gán deadline cuối năm; `make_*_row` tự bịa deadline/duration/benefits/`is_free=True`/tên POI `"{category} tại lat,lng"`/`capacity=200` | deadline lấy từ bài viết hoặc `NULL`; các field bịa → `NULL`; POI không tiêu đề → bỏ dòng |
+| `crawlers/events_crawler.py` | không có ngày → coi như diễn ra hôm nay, `end=+1 ngày`, `capacity=200` | không có ngày thật → **bỏ sự kiện** (`events.start_date` NOT NULL); `capacity=NULL` |
+| `scripts/seed_analytics_data.py` + `backend/src/database/migrations/seed_analytics.sql` | sinh 1000 `user_events` random | **xoá cả hai** (bảng `user_events` còn không tồn tại trong `schema.sql`) |
+| `scripts/seed_dntu_content.py`, `seed_dntu_extra.py`, `mega_seed_dntu.py` | seed học bổng/sự kiện/số liệu bịa, chạy được ngay | thêm cổng `ALLOW_DEMO_SEED=1` (giống `seed_edu_data.py`) |
+| `backend/src/modules/wifi.rs` | 3 query `true AS is_free` | `NULL::boolean AS is_free`; JSON trả `null` thay vì `false` |
+| `frontend/.../WifiTool.tsx` | `is_free` false → "Trả tiền"; tốc độ mặc định "Ổn định" | ba trạng thái Miễn phí / Trả tiền / **Chưa rõ**; tốc độ lấy từ `speed_mbps` thật, không có → "Chưa đo" (marker xám) |
+| `frontend/.../FeaturedPinCard.tsx` | `is_free` false → "Trả tiền" | thêm nhánh "Chưa rõ" |
+
+### 27.3 ai-service đọc Postgres (thay vì SQLite rỗng)
+
+Giữ nguyên nhánh SQLite sau `DB_TYPE=sqlite` cho dev, nhưng mặc định đọc
+Postgres:
+
+- `services/impact_measure.py::_load_facilities` — `map_points` +
+  `ST_Intersects(... ST_MakeEnvelope)`.
+- `services/climate_guardian.py` — `locations`, `map_points`, `flood_zones`
+  (`ST_AsGeoJSON`, `"riskLevel"`).
+- `services/llm_service.py::_read_fallback_rows(sql, pg_sql, params)` dùng cho
+  career advice, `_recommend_career_fallback`, `_match_mentors_fallback`,
+  `_get_local_trends` (jobs + career_paths). Lưu ý `mentors` **không có** cột
+  `location` → `NULL::text AS location`.
+- `services/data_quality.py::_query`, `services/auto_scheduler.py::_query`,
+  `routers/analytics.py::_query`, `services/question_gap_analyzer.py`
+  (`query_logs`), `services/predictive_service.py` (jobs skills + POI UNION).
+- `services/knowledge_graph.py` — **knowledge graph chạy được trên Postgres**:
+  tự tạo `kg_nodes`/`kg_edges`/`kg_extraction_review` (`_init_schema` chọn DDL
+  Postgres hay SQLite), adapter `_PgConn` dịch `?` → `%s` và trả row kiểu
+  `sqlite3.Row` (hỗ trợ `row[0]`), `_fetch(sql, pg_sql)` cho các bảng nguồn,
+  upsert portable (`ON CONFLICT (id) DO UPDATE` / `ON CONFLICT DO NOTHING`),
+  `updated_at` bind bằng Python. `_ensure()` retry bootstrap mỗi 60 s thay vì
+  chết tới lần restart sau (trước đây `_available` chỉ đúng khi `DB_TYPE=sqlite`
+  nên toàn bộ tính năng chết ở production).
+  Sửa kèm 2 lỗi thật: `_parse_json` là `@staticmethod` nhưng đọc `self` (mọi lần
+  trích xuất LLM đều rơi vào rule-based), và `knowledge_graph.query(...)` trả
+  `False` thay vì `None` khi chưa sẵn sàng.
+
+### 27.4 Kiểm chứng P2 (local, không chạy runtime)
+
+- `python3 -m compileall ai-service crawlers scripts` → OK.
+- Import sweep 14 module ai-service → OK (không có Postgres local: mọi cầu
+  Postgres trả `[]`, knowledge graph tự báo `degraded` và retry sau 60 s).
+- Knowledge graph chạy thật trên SQLite tạm: 11 nodes / 11 edges, `query()`
+  1-degree, `suggest_partners`, `extract_entities` (7 link), review +
+  `approve_extraction`, seed lần 2 idempotent.
+- `impact_measure.measure()` không có cơ sở → `impact_score=None`,
+  `has_baseline=False`, narrative giải thích; có baseline thật → 19.3 + Wilson CI.
+- `resource_optimizer.optimize({demand_points: []})` → degraded, 0 feature.
+- Frontend: PARSE OK; `tsc` scoped 28 file → 0 lỗi type thật (chỉ TS2307 do
+  thiếu `node_modules`); `/tmp/unused.js` sạch.
+- `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`,
+  `155+88=243 ⊆ True`, `17+55=72 ⊆ True` — không mất API surface.
+- **Chưa kiểm được**: mọi câu SQL Postgres mới (máy local không có DB Supabase);
+  runtime truth vẫn là host sau khi deploy.
+
+### 27.5 Việc người dùng phải làm khi deploy
+
+1. Deploy như bình thường (`git push` → Actions build → Render).
+2. Smoketest: `/api/impact-measurement/measure` (vùng chưa có cơ sở →
+   `impact_score: null`, `has_baseline: false`, `degraded: true`),
+   `/api/map/climate-risk` (có facility thật), `/api/wifi/locations`
+   (`is_free: null` thay vì `true`), `/api/community/posts?type=...` (200),
+   `/api/ai/knowledge/graph` (node_count > 0 sau lần seed đầu),
+   `/api/career/jobs` (deadline `null` khi bài viết không nêu hạn).
+3. `kg_*` không cần migration tay — bảng tự tạo khi ai-service khởi động.

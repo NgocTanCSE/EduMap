@@ -102,7 +102,7 @@ export function FeaturedPinCard({ pin, onClose, onGo, onOpenTool, onRoute }: Fea
         {pin.speed_label && (<div className="p-2 rounded-lg bg-blue-50/20 border border-blue-600/20">
             <div className="font-bold text-xs text-blue-600">{pin.speed_label}</div>
             <div className="text-[10px] text-muted-foreground/70">
-              {pin.is_free ? "Miễn phí" : "Trả tiền"}
+              {pin.is_free === true ? "Miễn phí" : pin.is_free === false ? "Trả tiền" : "Chưa rõ"}
             </div>
           </div>)}
       </div>

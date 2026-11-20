@@ -8,6 +8,11 @@ import math
 import os
 import re
 import sqlite3
+
+try:
+    from services import pg
+except Exception:
+    pg = None
 import uuid
 from collections import defaultdict
 from datetime import datetime, date
@@ -226,7 +231,7 @@ def _query_sqlite(sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
         cur.execute(sql, params)
         return [dict(row) for row in cur.fetchall()]
     except Exception as e:
-        logger.error(f"SQLite data_quality query failed: {e}")
+        logger.error(f"fallback query failed: {e}")
         return []
     finally:
         if conn is not None:
@@ -234,6 +239,13 @@ def _query_sqlite(sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
                 conn.close()
             except Exception:
                 pass
+
+
+def _query(sql: str, pg_sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
+    """Đọc POI từ Postgres (production); SQLite chỉ khi DB_TYPE=sqlite."""
+    if pg is not None and pg.is_postgres():
+        return pg.query(pg_sql, params)
+    return _query_sqlite(sql, params)
 
 
 def _load_poi_records() -> List[Dict[str, Any]]:
@@ -269,15 +281,22 @@ def _load_poi_records() -> List[Dict[str, Any]]:
             if records:
                 return records
     except Exception as e:
-        logger.warning(f"db_service load failed, falling back to SQLite: {e}")
+        logger.warning(f"db_service load failed, falling back to direct query: {e}")
 
 
 
     try:
-        mp_rows = _query_sqlite(
+        mp_rows = _query(
             "SELECT id, name, type_id, location, address, city, district, province, "
             "status, verified, created_by, created_at, updated_at, deleted_at "
-            "FROM map_points WHERE deleted_at IS NULL LIMIT 50000"
+            "FROM map_points WHERE deleted_at IS NULL LIMIT 50000",
+            "SELECT id::text AS id, name, type_id, ST_AsText(location) AS location, "
+            "address, city, district, province, CAST(status AS TEXT) AS status, "
+            "verified, created_by::text AS created_by, "
+            "CAST(created_at AS TEXT) AS created_at, "
+            "CAST(updated_at AS TEXT) AS updated_at, "
+            "CAST(deleted_at AS TEXT) AS deleted_at "
+            "FROM map_points WHERE deleted_at IS NULL LIMIT 50000",
         )
         for r in mp_rows:
             lng, lat = parse_coords(r.get("location"))
@@ -298,17 +317,26 @@ def _load_poi_records() -> List[Dict[str, Any]]:
                 province=r.get("province"),
             ))
     except Exception as e:
-        logger.warning(f"SQLite map_points read failed: {e}")
+        logger.warning(f"map_points read failed: {e}")
 
 
     try:
-        loc_rows = _query_sqlite(
+        loc_rows = _query(
             "SELECT l.id, l.name, l.category_id, l.coordinates, l.address, "
             "l.city, l.description, l.status, l.is_verified, l.created_by, "
             "l.created_at, l.updated_at, l.deleted_at, c.name as cat_name "
             "FROM locations l "
             "LEFT JOIN location_categories c ON l.category_id = c.id "
-            "WHERE l.deleted_at IS NULL LIMIT 50000"
+            "WHERE l.deleted_at IS NULL LIMIT 50000",
+            "SELECT l.id::text AS id, l.name, l.category_id::text AS category_id, "
+            "ST_AsText(l.coordinates) AS coordinates, l.address, l.city, "
+            "l.description, CAST(l.status AS TEXT) AS status, "
+            "l.is_verified, l.created_by::text AS created_by, "
+            "CAST(l.created_at AS TEXT) AS created_at, "
+            "CAST(l.updated_at AS TEXT) AS updated_at, c.name AS cat_name "
+            "FROM locations l "
+            "LEFT JOIN location_categories c ON l.category_id::text = c.id::text "
+            "LIMIT 50000",
         )
         for r in loc_rows:
             lng, lat = parse_coords(r.get("coordinates"))
@@ -329,7 +357,7 @@ def _load_poi_records() -> List[Dict[str, Any]]:
                 description=r.get("description"),
             ))
     except Exception as e:
-        logger.warning(f"SQLite locations read failed: {e}")
+        logger.warning(f"locations read failed: {e}")
 
     return records
 

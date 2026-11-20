@@ -55,6 +55,12 @@ _VIETNAMESE_STOPWORDS = frozenset({
 
 
 
+try:
+    from services import pg
+except Exception:
+    pg = None
+
+
 def _sqlite_path() -> Optional[str]:
     """Return the SQLite file used by the backend, when in SQLite mode."""
     if os.getenv("DB_TYPE", "postgres").lower() != "sqlite":
@@ -198,17 +204,19 @@ class QuestionGapAnalyzer:
         Columns: user_id_hash, query_text, retrieved_doc_count,
         retrieval_status, response_text, response_quality, created_at.
         """
-        rows = _query_sqlite(
-            f"""
+        sql = f"""
             SELECT user_id_hash, query_text, retrieved_doc_count,
                    retrieval_status, response_text, response_quality,
-                   created_at
+                   CAST(created_at AS TEXT) AS created_at
             FROM query_logs
             WHERE query_text IS NOT NULL AND length(query_text) > 0
             ORDER BY created_at DESC
             LIMIT {int(limit)}
-            """,
-        )
+            """
+        if pg is not None and pg.is_postgres():
+            rows = pg.query(sql)
+        else:
+            rows = _query_sqlite(sql)
         logger.info("question-gaps: loaded %d query_log rows (limit=%d)", len(rows), limit)
         return rows
 

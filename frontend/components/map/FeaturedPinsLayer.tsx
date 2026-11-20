@@ -21,7 +21,7 @@ export interface FeaturedPin {
     current_amount?: number;
     target_amount?: number;
     speed_label?: string;
-    is_free?: boolean;
+    is_free?: boolean | null;
     status?: string;
 }
 export interface FeaturedPinsLayerProps {

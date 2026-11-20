@@ -16,6 +16,11 @@ try:
 except Exception:
     LLMService = None
 
+try:
+    from services import pg
+except Exception:
+    pg = None
+
 
 
 
@@ -33,12 +38,6 @@ SQLITE_PATH = (
 
 
 POP_DENSITY_PER_KM2 = float(os.getenv("IMPACT_POP_DENSITY", "350"))
-
-
-
-
-SYNTHETIC_BEFORE_ACCESS_RATE = 0.70
-
 
 
 EDU_TYPE_NAMES = {
@@ -231,16 +230,31 @@ def _resolve_access_types(requested: Optional[List[str]]) -> set:
 
 def _load_facilities(bbox: Tuple[float, float, float, float],
                      access_types: set) -> List[Dict[str, Any]]:
-    """Load educational facilities within the bbox from SQLite ``map_points``.
+    """Load educational facilities within the bbox from ``map_points``.
+
+    Production reads Postgres (bbox pushed down to PostGIS); the bundled
+    SQLite file is only used when ``DB_TYPE=sqlite`` explicitly.
 
     Each facility: {id, name, category, lat, lng, created_at, type_id}.
     Only facilities whose type maps to an *access* category are returned.
     """
     min_lat, max_lat, min_lng, max_lng = bbox
-    rows = _query_sqlite(
-        "SELECT id, name, type_id, location, created_at, status "
-        "FROM map_points LIMIT 5000"
-    )
+    rows: List[Dict[str, Any]] = []
+    if pg is not None and pg.is_postgres():
+        rows = pg.query(
+            "SELECT id::text AS id, name, type_id, ST_AsText(location) AS location, "
+            "CAST(created_at AS TEXT) AS created_at, status "
+            "FROM map_points WHERE deleted_at IS NULL AND location IS NOT NULL "
+            "AND ST_Intersects(location::geometry, "
+            "ST_MakeEnvelope(%s, %s, %s, %s, 4326)) "
+            "LIMIT 5000",
+            (min_lng, min_lat, max_lng, max_lat),
+        )
+    else:
+        rows = _query_sqlite(
+            "SELECT id, name, type_id, location, created_at, status "
+            "FROM map_points LIMIT 5000"
+        )
     facilities: List[Dict[str, Any]] = []
     for r in rows:
         coords = _parse_coords(r.get("location"))
@@ -501,23 +515,31 @@ class ImpactMeasurementService:
         reason: Optional[str] = None
         if not facilities:
             degraded = True
+            reason = (
+                "Chưa có cơ sở giáo dục nào trong vùng — báo cáo tính trên 0 cơ sở, "
+                "không suy diễn thêm."
+            )
 
         before, after = _facilities_before_after(facilities, request.deployment_date)
-        synthetic_before = len(before) == 0
 
+        has_baseline = len(before) > 0
+        if not has_baseline:
+            degraded = True
+            reason = reason or (
+                "Chưa có dữ liệu cơ sở trước ngày triển khai — không thể tính "
+                "chênh lệch trước/sau."
+            )
 
         n_cells = len(cells)
         before_flags = _nearest_facility_within(cells, before, ACCESS_RADIUS_KM)
         after_flags = _nearest_facility_within(cells, after, ACCESS_RADIUS_KM)
         access_after = sum(after_flags) / max(n_cells, 1)
-        if synthetic_before:
-
-            access_before = SYNTHETIC_BEFORE_ACCESS_RATE
-            before_user_count = int(population * access_before)
-            degraded = True
-        else:
+        if has_baseline:
             access_before = sum(before_flags) / max(n_cells, 1)
             before_user_count = int(population * access_before)
+        else:
+            access_before = None
+            before_user_count = None
 
         after_user_count = int(population * access_after)
 
@@ -531,16 +553,22 @@ class ImpactMeasurementService:
         usage_before = usage_of(before)
         usage_after = usage_of(after)
 
-        access_delta = after_user_count - before_user_count
-        cover_imp = ((access_after - access_before) / access_before * 100.0) if access_before > 0 else 0.0
+        access_delta = (after_user_count - before_user_count) if has_baseline else None
+        if has_baseline and access_before and access_before > 0:
+            cover_imp = (access_after - access_before) / access_before * 100.0
+        elif has_baseline:
+            cover_imp = 0.0
+        else:
+            cover_imp = None
 
         before_metrics = {
             "period": "trước triển khai",
-            "access_rate": round(access_before, 4),
+            "access_rate": round(access_before, 4) if has_baseline else None,
             "user_count": before_user_count,
             "facility_count": len(before),
             "usage_count": usage_before,
-            "synthetic_baseline": synthetic_before,
+            "synthetic_baseline": False,
+            "has_baseline": has_baseline,
         }
         after_metrics = {
             "period": "sau triển khai",
@@ -549,6 +577,7 @@ class ImpactMeasurementService:
             "facility_count": len(after),
             "usage_count": usage_after,
             "synthetic_baseline": False,
+            "has_baseline": True,
         }
 
 
@@ -556,33 +585,29 @@ class ImpactMeasurementService:
         growth_pct = self._trend_growth(monthly)
 
 
-        score = self._impact_score(cover_imp, access_before, access_after, usage_before, usage_after)
-
-
-        ci_lo, ci_hi = _wilson_interval(int(round(access_after * n_cells)), max(n_cells, 1))
-
-        if synthetic_before:
-            ci_lo = max(0.0, ci_lo - 0.05)
-            ci_hi = min(1.0, ci_hi + 0.10)
-            ci_method = "wilson_score+synthetic_baseline_widen"
+        if has_baseline:
+            score = self._impact_score(
+                cover_imp, access_before, access_after, usage_before, usage_after
+            )
+            ci_lo, ci_hi = _wilson_interval(int(round(access_after * n_cells)), max(n_cells, 1))
+            score_ci_half = (ci_hi - ci_lo) / 2.0 * 100.0
+            score_ci = {
+                "lower": round(max(0.0, score - score_ci_half), 1),
+                "upper": round(min(100.0, score + score_ci_half), 1),
+                "level": CI_LEVEL,
+                "method": "wilson_score",
+            }
         else:
-            ci_method = "wilson_score"
-
-        score_ci_half = (ci_hi - ci_lo) / 2.0 * 100.0
-        score_ci = {
-            "lower": round(max(0.0, score - score_ci_half), 1),
-            "upper": round(min(100.0, score + score_ci_half), 1),
-            "level": CI_LEVEL,
-            "method": ci_method,
-        }
+            score = None
+            score_ci = None
 
 
-        causal_notes = self._causal_notes(synthetic_before, len(before), len(after))
+        causal_notes = self._causal_notes(has_baseline, len(before), len(after))
 
 
         narrative = self._narrative(
             before_metrics, after_metrics, cover_imp, access_delta,
-            score, growth_pct, synthetic_before, degraded,
+            score, growth_pct, has_baseline, degraded,
         )
 
         result = {
@@ -592,10 +617,10 @@ class ImpactMeasurementService:
             "before": before_metrics,
             "after": after_metrics,
             "diff": {
-                "access_rate_delta": round(access_after - access_before, 4),
+                "access_rate_delta": round(access_after - access_before, 4) if has_baseline else None,
                 "user_count_delta": access_delta,
-                "usage_count_delta": usage_after - usage_before,
-                "coverage_improvement_pct": round(cover_imp, 2),
+                "usage_count_delta": (usage_after - usage_before) if has_baseline else None,
+                "coverage_improvement_pct": round(cover_imp, 2) if has_baseline else None,
             },
             "people_in_radius": {
                 "before": before_user_count,
@@ -608,7 +633,7 @@ class ImpactMeasurementService:
                 "growth_rate_pct": round(growth_pct, 2),
                 "trend": self._trend_label(growth_pct),
             },
-            "impact_score": round(score, 1),
+            "impact_score": round(score, 1) if score is not None else None,
             "confidence_interval": score_ci,
             "causal_notes": causal_notes,
             "narrative": narrative,
@@ -616,11 +641,11 @@ class ImpactMeasurementService:
             "reason": reason,
             "metadata": {
                 "method": "impact_measure_v1",
-                "data_source": "sqlite_map_points",
+                "data_source": "postgres_map_points",
                 "facilities_loaded": len(facilities),
                 "before_count": len(before),
                 "after_count": len(after),
-                "synthetic_baseline": synthetic_before,
+                "has_baseline": has_baseline,
                 "grid_cells": n_cells,
                 "grid_step_deg": round(step, 5),
                 "pop_density_per_km2": POP_DENSITY_PER_KM2,
@@ -706,9 +731,14 @@ class ImpactMeasurementService:
 
 
     @staticmethod
-    @staticmethod
-    def _causal_notes(synthetic_before: bool, before_n: int, after_n: int) -> List[str]:
+    def _causal_notes(has_baseline: bool, before_n: int, after_n: int) -> List[str]:
         notes: List[str] = []
+        if not has_baseline:
+            notes.append(
+                "Không có cơ sở giáo dục nào được ghi nhận trước mốc triển khai, "
+                "nên chênh lệch trước/sau không được tính — báo cáo chỉ nêu hiện "
+                "trạng đo được, không suy diễn mức cải thiện."
+            )
         notes.append(
             "Yếu tố nhầm lẫn (confounding): khác biệt truy cập có thể do tăng dân "
             "số, thay đổi dân cư, hoặc các triển khai khác cùng thời gian — "
@@ -724,25 +754,28 @@ class ImpactMeasurementService:
 
 
     def _narrative(self, before, after, cover_imp, user_delta,
-                   score: float, growth_pct: float, synthetic_before: bool,
+                   score, growth_pct: float, has_baseline: bool,
                    degraded: bool) -> str:
         """Build a short human-readable impact narrative.
 
         Uses the LLM provider cascade when available (temperature=0.3, like
         rank_impact_matches) and falls back to a deterministic template so the
         dashboard always has a coherent explanation — never a 502.
+
+        Without a measured baseline the narrative is template-only: an LLM
+        handed missing numbers tends to invent a story around them.
         """
         payload = {
             "before": before,
             "after": after,
-            "coverage_improvement_pct": round(cover_imp, 2),
+            "coverage_improvement_pct": round(cover_imp, 2) if cover_imp is not None else None,
             "user_count_delta": user_delta,
-            "impact_score": round(score, 1),
+            "impact_score": round(score, 1) if score is not None else None,
             "growth_rate_pct": round(growth_pct, 2),
-            "synthetic_baseline": synthetic_before,
+            "has_baseline": has_baseline,
             "degraded": degraded,
         }
-        if self._llm_ready():
+        if has_baseline and self._llm_ready():
             try:
                 prompt = self._narrative_prompt(payload)
                 text = self._llm._generate_text_with_fallback(
@@ -769,20 +802,32 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
     def _narrative_template(payload: dict) -> str:
         b = payload["before"]
         a = payload["after"]
-        b_access_rate = b["access_rate"]
         a_access_rate = a["access_rate"]
-        b_user_count = b["user_count"]
         a_user_count = a["user_count"]
-        b_facility_count = b["facility_count"]
         a_facility_count = a["facility_count"]
-        cover_pct = payload["coverage_improvement_pct"]
-        user_delta = payload["user_count_delta"]
-        impact_score = payload["impact_score"]
         growth_rate = payload.get("growth_rate_pct")
         if growth_rate:
             growth_clause = f" với tốc độ tăng trưởng {growth_rate:.1f}%/tháng"
         else:
             growth_clause = ""
+        if not payload.get("has_baseline"):
+            people = f"{a_user_count:,}".replace(",", ".")
+            return (
+                "Chưa có cơ sở giáo dục nào được ghi nhận trước mốc triển khai "
+                "trong vùng này, nên báo cáo không tính chênh lệch trước/sau và "
+                f"không chấm điểm tác động. Hiện trạng đo được: {a_facility_count} "
+                f"cơ sở, khoảng {people} người trong bán kính "
+                f"{ACCESS_RADIUS_KM:.0f} km có thể tiếp cận"
+                f"{growth_clause}. Cần dữ liệu ngày tạo cơ sở trước mốc triển "
+                "khai để đo tác động thật. Lưu ý: causal inference có hạn — nên "
+                "triển khai RCT để khẳng định nguyên nhân."
+            )
+        b_access_rate = b["access_rate"]
+        b_user_count = b["user_count"]
+        b_facility_count = b["facility_count"]
+        cover_pct = payload["coverage_improvement_pct"]
+        user_delta = payload["user_count_delta"]
+        impact_score = payload["impact_score"]
         facility_delta = a_facility_count - b_facility_count
         return (
             f"Sau triển khai, tỉ lệ tiếp cận tăng từ {b_access_rate:.1%} lên "

@@ -12,6 +12,11 @@ import subprocess
 import traceback
 import urllib.parse
 
+try:
+    from services import pg
+except Exception:
+    pg = None
+
 router = APIRouter(prefix="/api/ai/analytics", tags=["6. AI Education Analytics"])
 
 class DashboardInsightRequest(BaseModel):
@@ -51,6 +56,13 @@ def _query_sqlite(sql: str) -> List[Dict[str, Any]]:
                 pass
 
 
+def _query(sql: str, pg_sql: str) -> List[Dict[str, Any]]:
+    """Run a read-only query: Postgres in production, SQLite only in SQLite mode."""
+    if pg is not None and pg.is_postgres():
+        return pg.query(pg_sql)
+    return _query_sqlite(sql)
+
+
 def _filter_sourced_stats(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Keep only statistics that cite a source.
 
@@ -87,9 +99,12 @@ def _load_education_stats() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"DB error fetching education stats: {e}")
 
-    return _filter_sourced_stats(_query_sqlite(
+    return _filter_sourced_stats(_query(
         "SELECT region, province, district, metric_type, metric_value, year, source "
-        "FROM education_stats ORDER BY year ASC"
+        "FROM education_stats ORDER BY year ASC",
+        "SELECT region, province, district, metric_type, "
+        "CAST(metric_value AS DOUBLE PRECISION) AS metric_value, year, source "
+        "FROM education_stats ORDER BY year ASC",
     ))
 
 
@@ -101,8 +116,9 @@ def _load_user_events(limit: int = 500) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"DB error fetching user events: {e}")
 
-    return _query_sqlite(
-        f"SELECT event_type FROM user_events ORDER BY created_at DESC LIMIT {int(limit)}"
+    return _query(
+        f"SELECT event_type FROM user_events ORDER BY created_at DESC LIMIT {int(limit)}",
+        f"SELECT event_type FROM user_events ORDER BY created_at DESC LIMIT {int(limit)}",
     )
 
 
@@ -313,8 +329,10 @@ def _load_trending_skills(limit: int = 5) -> Tuple[List[Dict[str, Any]], str]:
             pass
 
     if not jobs:
-        jobs = _query_sqlite(
-            "SELECT required_skills FROM jobs WHERE status = 'active'"
+        jobs = _query(
+            "SELECT required_skills FROM jobs WHERE status = 'active'",
+            "SELECT CAST(required_skills AS TEXT) AS required_skills "
+            "FROM jobs WHERE status = 'active'",
         )
 
     counter: Counter = Counter()

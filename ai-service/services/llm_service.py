@@ -29,6 +29,10 @@ except Exception as e:
             pass
     cache_service = _NoOpCache()
 try:
+    from services import pg as _pg
+except Exception:
+    _pg = None
+try:
     from models.career_models import CareerAnalysisRequest
 except Exception:
     CareerAnalysisRequest = None
@@ -173,7 +177,7 @@ class LLMService:
         if self.has_adzuna:
             print(f"INFO: Adzuna API configured (country={self.adzuna_country}). LLM-independent market trends enabled.")
         else:
-            print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use local SQLite fallback for market trends.")
+            print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use the local jobs table for market trends.")
 
 
 
@@ -865,7 +869,6 @@ class LLMService:
             yield f"data: {json.dumps({'done': True})}\n\n"
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
         """Fallback trả lời khi provider chat đều thất bại.
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
@@ -930,21 +933,13 @@ class LLMService:
 
         user_terms_lower = [str(s).lower().strip() for s in skills + interests if s]
 
-        db_path = self._resolve_db_path()
-        rows = []
-        if db_path:
-            try:
-                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT title, field, description, skills_required, "
-                    "salary_range, demand_level FROM career_paths LIMIT 50"
-                )
-                rows = [dict(r) for r in cur.fetchall()]
-                conn.close()
-            except Exception:
-                rows = []
+        rows = self._read_fallback_rows(
+            "SELECT title, field, description, skills_required, "
+            "salary_range, demand_level FROM career_paths LIMIT 50",
+            "SELECT title, field, description, "
+            "CAST(skills_required AS TEXT) AS skills_required, "
+            "salary_range, demand_level FROM career_paths LIMIT 50",
+        )
 
         if not rows:
             return (
@@ -1109,40 +1104,46 @@ class LLMService:
             return None
 
     def _get_local_trends(self, keyword: str) -> list:
-        """Query local SQLite edumap.db (jobs + career_paths) — guaranteed to work."""
-        try:
-            conn = sqlite3.connect(self.sqlite_path, timeout=5)
-            conn.row_factory = sqlite3.Row
-            cur = conn.cursor()
-            results = []
-            cur.execute(
-                "SELECT title, company_name, location, job_type, salary_range, required_skills "
-                "FROM jobs WHERE status = 'active' LIMIT 10"
-            )
-            for row in cur.fetchall():
-                skills_raw = row["required_skills"] or "[]"
-                try:
-                    skills = json.loads(skills_raw) if isinstance(skills_raw, str) else skills_raw
-                except Exception:
-                    skills = [str(skills_raw)]
-                results.append({
-                    "title": row["title"], "company": row["company_name"],
-                    "location": row["location"], "category": row["job_type"],
-                    "salary": row["salary_range"], "skills": skills,
-                })
-            cur.execute("SELECT title, field, description FROM career_paths LIMIT 10")
-            for row in cur.fetchall():
-                results.append({
-                    "title": row["title"], "company": row["field"], "location": "",
-                    "category": "career_path", "salary": "", "skills": "",
-                    "description": row["description"],
-                })
-            conn.close()
-            print(f"  Local SQLite: fetched {len(results)} records for '{keyword}'")
-            return results
-        except Exception as e:
-            print(f"  Local SQLite query failed: {e}")
-            return []
+        """Read real job market rows for the trend report.
+
+        Production reads Postgres (``jobs`` + ``career_paths``); the bundled
+        SQLite file is only used when ``DB_TYPE=sqlite``. An unreachable
+        database yields an empty list, which the template report renders as
+        "no market data" instead of inventing sample postings.
+        """
+        results = []
+        job_rows = self._read_fallback_rows(
+            "SELECT title, company_name, location, job_type, salary_range, required_skills "
+            "FROM jobs WHERE status = 'active' LIMIT 10",
+            "SELECT title, company_name, location, CAST(job_type AS TEXT) AS job_type, "
+            "salary_range, CAST(required_skills AS TEXT) AS required_skills "
+            "FROM jobs WHERE status = 'active' LIMIT 10",
+        )
+        for row in job_rows:
+            skills_raw = row.get("required_skills") or "[]"
+            try:
+                skills = json.loads(skills_raw) if isinstance(skills_raw, str) else skills_raw
+            except Exception:
+                skills = [str(skills_raw)]
+            results.append({
+                "title": row.get("title"), "company": row.get("company_name"),
+                "location": row.get("location"), "category": row.get("job_type"),
+                "salary": row.get("salary_range"), "skills": skills,
+            })
+
+        path_rows = self._read_fallback_rows(
+            "SELECT title, field, description FROM career_paths LIMIT 10",
+            "SELECT title, field, description FROM career_paths LIMIT 10",
+        )
+        for row in path_rows:
+            results.append({
+                "title": row.get("title"), "company": row.get("field"), "location": "",
+                "category": "career_path", "salary": "", "skills": "",
+                "description": row.get("description"),
+            })
+
+        print(f"  Local DB: fetched {len(results)} records for '{keyword}'")
+        return results
 
     def _generate_trends_analysis(self, keyword: str, market_data: list) -> str:
         """Build a template-based market trends report from structured data (no LLM)."""
@@ -1153,7 +1154,7 @@ class LLMService:
                 f"Phân tích xu hướng thị trường việc làm '{keyword}':\n"
                 f"- Hiện tại không có dữ liệu thị trường khả dụng.\n"
                 f"- Khuyến nghị: Cấu hình ADZUNA_APP_ID + ADZUNA_APP_KEY để kết nối API Adzuna, "
-                f"hoặc thêm dữ liệu vào bảng jobs trong edumap.db."
+                f"hoặc để crawler việc làm ghi thêm dữ liệu vào bảng jobs."
             )
 
         skills = []
@@ -2075,6 +2076,35 @@ Trả về **mảng JSON** sau:
             "_reason": f"AI unavailable -- template fallback ({err[:140]})",
         }
 
+    def _read_fallback_rows(self, sql: str, pg_sql: Optional[str] = None,
+                            params: tuple = ()) -> List[Dict[str, Any]]:
+        """Read rows for the template fallbacks from the live database.
+
+        Production is Postgres (Supabase) — the bundled SQLite file only exists
+        in the legacy ``DB_TYPE=sqlite`` path. Returns ``[]`` (never raises)
+        when neither is reachable, so callers keep their honest empty state.
+        """
+        if _pg is not None and _pg.is_postgres():
+            return _pg.query(pg_sql or sql, params)
+        db_path = self._resolve_db_path()
+        if not db_path:
+            return []
+        conn = None
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(sql, params or ())
+            return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            return []
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
     def _resolve_db_path(self) -> Optional[str]:
         """Resolve the SQLite DB path across environments.
 
@@ -2120,22 +2150,13 @@ Trả về **mảng JSON** sau:
         user_skills_lower = [str(s).lower().strip() for s in user_skills_raw if s]
 
 
-        rows = []
-        db_path = self._resolve_db_path()
-        if db_path:
-            try:
-                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT title, field, description, skills_required, "
-                    "salary_range, demand_level FROM career_paths "
-                    "LIMIT 50"
-                )
-                rows = [dict(r) for r in cur.fetchall()]
-                conn.close()
-            except Exception:
-                rows = []
+        rows = self._read_fallback_rows(
+            "SELECT title, field, description, skills_required, "
+            "salary_range, demand_level FROM career_paths LIMIT 50",
+            "SELECT title, field, description, "
+            "CAST(skills_required AS TEXT) AS skills_required, "
+            "salary_range, demand_level FROM career_paths LIMIT 50",
+        )
 
         if not rows:
             return [
@@ -2245,22 +2266,14 @@ Trả về **mảng JSON** sau:
             desired = data.skills if isinstance(data.skills, list) else [str(data.skills)]
         desired_lower = [str(s).lower().strip() for s in desired if s]
 
-        rows = []
-        db_path = self._resolve_db_path()
-        if db_path:
-            try:
-                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT user_id, specialties, experience_years, rating_avg, "
-                    "total_sessions, is_verified, location FROM mentors "
-                    "LIMIT 50"
-                )
-                rows = [dict(r) for r in cur.fetchall()]
-                conn.close()
-            except Exception:
-                rows = []
+        rows = self._read_fallback_rows(
+            "SELECT user_id, specialties, experience_years, rating_avg, "
+            "total_sessions, is_verified, location FROM mentors LIMIT 50",
+            "SELECT user_id::text AS user_id, CAST(specialties AS TEXT) AS specialties, "
+            "experience_years, CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, "
+            "total_sessions, is_verified, NULL::text AS location "
+            "FROM mentors LIMIT 50",
+        )
 
         if not rows:
             return [{
@@ -2353,13 +2366,15 @@ Trả về **mảng JSON** sau:
         }
 
     def _suggestions_fallback(self, err: str = "") -> list:
-        """Template-based career suggestions when all LLM providers are down."""
-        reason = f"AI unavailable -- template fallback ({err[:140]})"
-        return [
-            {"title": "AI Engineer", "description": "Phát triển trí tuệ nhân tạo và học máy.", "match_score": 85, "_degraded": True, "_reason": reason},
-            {"title": "Fullstack Developer", "description": "Phát triển web front-end và back-end.", "match_score": 78, "_degraded": True, "_reason": reason},
-            {"title": "Data Scientist", "description": "Phân tích dữ liệu và khai phá thông tin.", "match_score": 72, "_degraded": True, "_reason": reason},
-        ]
+        """No invented careers when every provider is down.
+
+        Returning canned titles with made-up ``match_score`` values made the
+        dashboard read as a personalised AI ranking ("AI Engineer 85%"). With
+        no model and no user signal there is nothing honest to rank, so the
+        list is empty and the UI shows its empty state.
+        """
+        print(f"[suggestions] AI unavailable — trả danh sách rỗng ({err[:140]})")
+        return []
 
 
     async def moderate_text(self, text: str) -> dict:

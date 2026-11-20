@@ -18,25 +18,27 @@ export interface ImpactMetrics {
     population_estimate: number;
     before: {
         period: string;
-        access_rate: number;
-        user_count: number;
+        access_rate: number | null;
+        user_count: number | null;
         facility_count: number;
         usage_count: number;
         synthetic_baseline: boolean;
+        has_baseline?: boolean;
     };
     after: {
         period: string;
-        access_rate: number;
-        user_count: number;
+        access_rate: number | null;
+        user_count: number | null;
         facility_count: number;
         usage_count: number;
         synthetic_baseline: boolean;
+        has_baseline?: boolean;
     };
     diff: {
-        access_rate_delta: number;
-        user_count_delta: number;
-        usage_count_delta: number;
-        coverage_improvement_pct: number;
+        access_rate_delta: number | null;
+        user_count_delta: number | null;
+        usage_count_delta: number | null;
+        coverage_improvement_pct: number | null;
     };
     deployment_timeline: Array<{
         month: string;
@@ -47,9 +49,9 @@ export interface ImpactMetrics {
 }
 export interface ImpactReport extends ImpactMetrics {
     people_in_radius: {
-        before: number;
-        after: number;
-        delta: number;
+        before: number | null;
+        after: number | null;
+        delta: number | null;
         radius_km: number;
     };
     trend: {
@@ -57,13 +59,13 @@ export interface ImpactReport extends ImpactMetrics {
         growth_rate_pct: number;
         trend: string;
     };
-    impact_score: number;
+    impact_score: number | null;
     confidence_interval: {
         lower: number;
         upper: number;
         level: number;
         method: string;
-    };
+    } | null;
     causal_notes: string[];
     narrative: string;
     degraded: boolean;

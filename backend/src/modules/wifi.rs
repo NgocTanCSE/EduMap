@@ -38,7 +38,7 @@ use serde_json::Value;
 /// + `lat`/`lng` trực tiếp để frontend (Leaflet) đọc. `coordinates` = cfold
 /// geojson (cùng shape với `location`).
 const DB_SELECT_WIFI_LOCATIONS: &str = r#"
-    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, NULL::boolean AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
@@ -50,7 +50,7 @@ const DB_SELECT_WIFI_LOCATIONS: &str = r#"
 "#;
 
 const DB_SELECT_WIFI_NEARBY: &str = r#"
-    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, NULL::boolean AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
@@ -64,7 +64,7 @@ const DB_SELECT_WIFI_NEARBY: &str = r#"
 "#;
 
 const DB_SELECT_WIFI_BY_ID: &str = r#"
-    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, NULL::boolean AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
@@ -101,7 +101,7 @@ fn location_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
         "address": crate::db::opt_text(&row, "address").unwrap_or_default(),
         "speed_mbps": crate::db::opt_num(&row, "speed_mbps"),
-        "is_free": crate::db::opt_flag(&row, "is_free").unwrap_or(false),
+        "is_free": crate::db::opt_flag(&row, "is_free"),
         "password": crate::db::opt_text(&row, "password").unwrap_or_default(),
         "password_hint": crate::db::opt_text(&row, "password_hint").unwrap_or_default(),
         "verified": crate::db::opt_flag(&row, "verified").unwrap_or(false),

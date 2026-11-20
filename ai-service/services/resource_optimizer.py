@@ -320,10 +320,12 @@ class ResourceOptimizer:
           budget              — total budget in VND (default 30_000_000)
           coverage_radius_km  — override for all facility radii (default: per-type)
           facility_types      — dict of {type: {cost, radius_km, label}}
-          demand_points       — list of {lat,lng,weight?} (learners' locations)
-          candidate_locations — list of {lat,lng,facility_type?,name?}
-          center              — {lat,lng} for grid generation (default: Biên Hòa)
-          region_radius_km    — radius for grid generation (default 10 km)
+          demand_points       — list of {lat,lng,weight?} (real learners' POIs);
+                                empty → degraded result, never synthetic points
+          candidate_locations — list of {lat,lng,facility_type?,name?}; empty →
+                                a grid of candidate sites is proposed
+          center              — {lat,lng} for the candidate grid (default: Biên Hòa)
+          region_radius_km    — radius for the candidate grid (default 10 km)
 
         Returns:
           A GeoJSON-like dict:
@@ -360,9 +362,6 @@ class ResourceOptimizer:
 
 
         raw_demand = data.get("demand_points") or []
-        if not raw_demand:
-
-            raw_demand = self._default_demand_points(center, region_radius)
 
         demand_points = []
         for d in raw_demand:
@@ -435,7 +434,10 @@ class ResourceOptimizer:
                     "demand_count": n_demand,
                     "pre_filtered": pre_filtered,
                     "elapsed_ms": int((time.monotonic() - t0) * 1000),
-                    "error": "No demand points or candidate locations provided.",
+                    "error": (
+                        "Chưa có điểm nhu cầu thật trong vùng — cần crawl POI "
+                        "trước khi tối ưu phân bổ."
+                    ),
                 },
             }
 
@@ -491,26 +493,6 @@ class ResourceOptimizer:
             "gaps": gap_fc,
             "summary": summary,
         }
-
-    def _default_demand_points(self, center: Dict, radius_km: float) -> List[Dict]:
-        """Generate synthetic demand points around a centre when no real data
-        is provided (used by smoke tests / local dev)."""
-        lat0 = float(center.get("lat", DEFAULT_CENTER["lat"]))
-        lng0 = float(center.get("lng", DEFAULT_CENTER["lng"]))
-        points = []
-
-        for k in range(24):
-            angle = 2 * math.pi * k / 24
-            r = radius_km * (0.3 + 0.7 * (k / 24))
-            dlat = (r * math.cos(angle)) / 111.0
-            dlng = (r * math.sin(angle)) / (111.0 * math.cos(math.radians(lat0)))
-            points.append({
-                "lat": round(lat0 + dlat, 6),
-                "lng": round(lng0 + dlng, 6),
-                "name": f"Điểm nhu cầu {k+1}",
-                "weight": max(10, 50 - k * 2),
-            })
-        return points
 
 
 def solver_used_fallback() -> str:

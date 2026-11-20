@@ -72,8 +72,9 @@ export default function ImpactMeasurementPage() {
     }, [params.deploymentDate, params.region, params.minLat, params.maxLat, params.minLng, params.maxLng, params.lat, params.lng, params.radiusKm, user]);
     const b = report?.before;
     const a = report?.after;
-    const score = report?.impact_score ?? 0;
-    const ci = report?.confidence_interval;
+    const score = report?.impact_score ?? null;
+    const hasScore = score !== null;
+    const ci = report?.confidence_interval || null;
     const ciHalf = ci ? (ci.upper - ci.lower) / 2 : 0;
     const ciCenter = ci ? (ci.lower + ci.upper) / 2 : 0;
     const trendPoints = report?.trend?.monthly ?? [];
@@ -83,7 +84,7 @@ export default function ImpactMeasurementPage() {
         const r = 80;
         const cx = 100;
         const cy = 100;
-        const pct = Math.max(0, Math.min(100, score)) / 100;
+        const pct = Math.max(0, Math.min(100, score ?? 0)) / 100;
         const dash = 2 * Math.PI * r;
         const offset = dash * (1 - pct);
         const ciLoPct = Math.max(0, Math.min(100, ciCenter - ciHalf)) / 100;
@@ -94,8 +95,8 @@ export default function ImpactMeasurementPage() {
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e71f3" strokeWidth="16"/>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#93c5fd" strokeWidth="16" strokeDasharray={`${bandLen} ${dash}`} strokeDashoffset={dash * (1 - ciHiPct)} transform={`rotate(180 ${cx} ${cy})`} opacity={ci ? 0.35 : 0}/>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2563eb" strokeWidth="16" strokeDasharray={`${dash} ${dash}`} strokeDashoffset={offset} transform={`rotate(180 ${cx} ${cy})`} strokeLinecap="round"/>
-        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="fill-foreground font-bold text-3xl">{Math.round(score)}</text>
-        <text x={cx} y={cy + 20} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-xs">/100</text>
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="fill-foreground font-bold text-3xl">{hasScore ? Math.round(score as number) : "—"}</text>
+        <text x={cx} y={cy + 20} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-xs">{hasScore ? "/100" : "thiếu dữ liệu nền"}</text>
         <text x={cx} y={cy + 42} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[10px]">
           {ci ? `CI ${fmtPct(ci.lower, 0)}–${fmtPct(ci.upper, 0)}%` : ""}
         </text>
@@ -166,8 +167,15 @@ export default function ImpactMeasurementPage() {
       </svg>);
     };
     const CoverageArcSvg = () => {
-        const val = report?.diff?.coverage_improvement_pct ?? 0;
-        const pct = Math.max(-100, Math.min(100, val));
+        const raw = report?.diff?.coverage_improvement_pct;
+        if (raw === null || raw === undefined) {
+            return (<svg width="140" height="140" viewBox="0 0 140 140">
+        <circle cx={70} cy={70} r={54} fill="none" stroke="#e5e71f3" strokeWidth="12"/>
+        <text x={70} y={70} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground font-bold text-xl">—</text>
+        <text x={70} y={88} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[9px]">Chưa có baseline</text>
+      </svg>);
+        }
+        const pct = Math.max(-100, Math.min(100, raw));
         const color = pct >= 0 ? "#2563eb" : "#ef4444";
         const track = "#e5e71f3";
         const r = 54;
@@ -269,7 +277,7 @@ export default function ImpactMeasurementPage() {
               </div>
             </div>
             <p className={`text-xs font-semibold mt-2 ${report.degraded ? "text-primary" : "text-accent"}`}>
-              {report.degraded ? "Mô hình suy diễn dự phòng" : "Mô hình tính toán AI nâng cao"}
+              {hasScore ? "Điểm tác động tính từ dữ liệu trước/sau" : "Chưa đủ dữ liệu nền để chấm điểm tác động"}
             </p>
           </div>
 
@@ -292,7 +300,7 @@ export default function ImpactMeasurementPage() {
               <div className="flex justify-center my-2">{CoverageArcSvg()}</div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {b?.synthetic_baseline ? "Trước: số liệu baseline tham chiếu" : "Tính toán trên dữ liệu thực tế"}
+              {b?.has_baseline === false ? "Chưa có cơ sở ghi nhận trước mốc triển khai — chỉ nêu hiện trạng" : "Tính toán trên dữ liệu thực tế"}
             </p>
           </div>
         </div>)}
@@ -358,12 +366,16 @@ export default function ImpactMeasurementPage() {
                 <span className="text-lg sm:text-2xl font-bold text-foreground">{fmtNumber(report.people_in_radius?.after)}</span>
                 <span className="text-[10px] text-muted-foreground block mt-0.5">người</span>
               </div>
-              <div className={`p-3.5 rounded-xl border text-center ${report.people_in_radius?.delta >= 0
+              <div className={`p-3.5 rounded-xl border text-center ${(report.people_in_radius?.delta ?? null) === null
+                ? 'bg-muted/40 border-border/60 text-muted-foreground'
+                : (report.people_in_radius?.delta as number) >= 0
                 ? 'bg-accent/10 border-accent/30 text-accent'
                 : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
                 <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">Chênh lệch</span>
                 <span className="text-lg sm:text-2xl font-bold">
-                  {(report.people_in_radius?.delta >= 0 ? "+" : "") + fmtNumber(report.people_in_radius?.delta)}
+                  {(report.people_in_radius?.delta ?? null) === null
+                ? "—"
+                : ((report.people_in_radius?.delta as number) >= 0 ? "+" : "") + fmtNumber(report.people_in_radius?.delta)}
                 </span>
                 <span className="text-[10px] block mt-0.5">người tiếp cận</span>
               </div>

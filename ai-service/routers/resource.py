@@ -30,9 +30,11 @@ def _get_solver():
 class ResourceOptimizeRequest(BaseModel):
     """Request body for the MCLP resource optimisation.
 
-    All fields are optional — when demand_points / candidate_locations are
-    omitted the solver generates synthetic data around ``center`` so the API
-    is always usable (handy for smoke tests and local dev without a DB).
+    ``demand_points`` must be real POIs (the map backend sends them). When it
+    is empty the endpoint answers ``status: degraded`` with an empty
+    FeatureCollection — it never invents learners around ``center``.
+    ``candidate_locations`` may be omitted, in which case a grid of candidate
+    sites inside the region is proposed (those are proposals, not data).
     """
     budget: float = Field(default=30_000_000, description="Tổng ngân sách (VND)")
     coverage_radius_km: Optional[float] = Field(default=None, description="Bán kính phủ sóng (km) — ghi đè mặc định của từng loại hình")
@@ -91,6 +93,8 @@ async def optimize_resources(data: ResourceOptimizeRequest):
             return {
                 **result,
                 "status": "degraded",
+                "degraded": True,
+                "empty": True,
                 "reason": result["summary"]["error"],
             }
 
