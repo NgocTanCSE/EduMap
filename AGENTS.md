@@ -2496,9 +2496,10 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   `top-4`.
 - **`QuickDock` (`components/ui/magic/QuickDock.tsx`) là nav chính:** theme ·
   7 hub (icon + `group.hubHref`) · `/features` · avatar · cuộn lên đầu · thu gọn.
-  Hub đang mở suy ra bằng `groupForPath(pathname)`. Mobile mặc định thu gọn
-  (≤640px) và Dock cuộn ngang khi mở. Trên `/map` nút thu gọn đặt
-  `right-[4.75rem]` để không chồng rail `MapMenu`.
+  Hub đang mở suy ra bằng `groupForPath(pathname)`. Mobile (≤640px) mặc định thu
+  gọn; khi mở là popover dọc (7 hub + `/features` + giao diện + avatar/đăng nhập +
+  đăng xuất), mở ở góc dưới-trái để tránh rail `MapMenu`, tự đóng khi đổi trang.
+  Trên `/map` nút thu gọn đặt `right-[4.75rem]` để không chồng rail `MapMenu`.
 - **Avatar → `DashboardDrawer` (`components/dashboard/DashboardDrawer.tsx`):**
   drawer trượt phải `w-[min(480px,100vw)]`, không lớp phủ tối, đóng bằng nút/Esc
   hoặc click nền trong suốt; nội dung dùng chung
