@@ -38,8 +38,8 @@ export class ErrorBoundary extends Component<Props, State> {
               <button onClick={() => this.setState({ hasError: false, error: null })} className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary text-black font-bold rounded-xl transition-all">
                 <RefreshCw className="w-4 h-4"/> Thử lại
               </button>
-              <button onClick={() => window.location.href = '/'} className="flex items-center gap-2 px-6 py-3 border border-border/10 hover:bg-muted/20 font-bold rounded-xl transition-all">
-                <Home className="w-4 h-4"/> Về trang chủ
+              <button onClick={() => window.location.href = '/map'} className="flex items-center gap-2 px-6 py-3 border border-border/10 hover:bg-muted/20 font-bold rounded-xl transition-all">
+                <Home className="w-4 h-4"/> Về bản đồ
               </button>
             </div>
           </div>

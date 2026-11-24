@@ -25,9 +25,9 @@ export default function GlobalError({ error, reset, }: {
                 <RotateCcw className="h-4 w-4"/>
                 Thử lại
               </button>
-              <button onClick={() => { window.location.href = '/'; }} className={`${buttonBase} border border-border bg-card text-foreground hover:border-primary/40`}>
+              <button onClick={() => { window.location.href = '/map'; }} className={`${buttonBase} border border-border bg-card text-foreground hover:border-primary/40`}>
                 <Home className="h-4 w-4"/>
-                Về trang chủ
+                Về bản đồ
               </button>
             </div>
           </div>

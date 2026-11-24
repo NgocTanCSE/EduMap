@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { HeartHandshake, Clock, ShieldCheck, Plus, Calendar, FileText, Loader2, CheckCircle2, Award, X } from 'lucide-react';
 import { volunteerService, VolunteerActivity } from '../../src/services/volunteer.service';
@@ -87,6 +88,7 @@ export default function VolunteerPage() {
     }
     const progress = Math.min(100, (totalHours / 50) * 100);
     return (<div className="relative min-h-[calc(100dvh-3.5rem)] w-full lg:min-h-screen">
+      <HubTabBar hubId="community"/>
       {showForm && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
             <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 rounded-lg p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors">

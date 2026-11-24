@@ -12,7 +12,7 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
-import { CareerTabBar } from '@/components/career/CareerTabBar';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 import { Badge } from '@/components/ui/badge';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 interface UserProfileLite {
@@ -252,7 +252,7 @@ export default function OpportunityRadarPage() {
         void runMatch();
     };
     return (<>
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
       <ContentShell>
       <SectionHeader title="Opportunity Radar" subtitle="Tìm học bổng, khóa học miễn phí, cuộc thi phù hợp với hồ sơ của bạn. AI phân tích điều kiện và đưa ra lý do + checklist hồ sơ."/>
 

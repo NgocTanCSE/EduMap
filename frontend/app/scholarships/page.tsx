@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GraduationCap, MapPin, DollarSign, Clock, CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X, ExternalLink, } from 'lucide-react';
@@ -180,6 +181,7 @@ export default function ScholarshipPage() {
     });
     const paginatedScholarships = filteredScholarships.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     return (<ContentShell>
+      <HubTabBar hubId="learn"/>
       
       {showApplyModal && selectedScholarship && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">

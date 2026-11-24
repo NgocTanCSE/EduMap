@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
@@ -71,6 +72,7 @@ export default function MentorPage() {
     const filteredMentors = mentors.filter(m => m.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.specialties?.some((s: string) => s.toLowerCase().includes(searchTerm.toLowerCase())));
     return (<div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 space-y-8">
+      <HubTabBar hubId="community"/>
       <div className="bg-card p-6 sm:p-8 lg:p-10 rounded-[22px] border border-border/80 shadow-orvel flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
         <InteractiveGridPattern className="opacity-30 [mask-image:radial-gradient(450px_circle_at_top_right,white,transparent)]"/>
         <div className="relative z-10 space-y-4 max-w-xl">

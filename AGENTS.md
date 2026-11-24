@@ -2401,3 +2401,38 @@ Postgres:
    `/api/ai/knowledge/graph` (node_count > 0 sau lần seed đầu),
    `/api/career/jobs` (deadline `null` khi bài viết không nêu hạn).
 3. `kg_*` không cần migration tay — bảng tự tạo khi ai-service khởi động.
+
+## 28. Gộp điều hướng theo hub lĩnh vực + bỏ landing (2026-11-24)
+
+Sidebar chỉ còn **7 hub** (mỗi nhóm đúng 1 mục); mọi tính năng con nằm trong
+trang hub và truy cập qua `HubTabBar`:
+
+| Hub | Landing | Tính năng con |
+|---|---|---|
+| Bảng điều khiển (`personal`) | `/dashboard` | Tất cả tính năng `/features` |
+| Bản đồ (`map`) | `/map` | green, summer, wifi (14 tool trong panel map) |
+| Học tập (`learn`) | `/learn` | scholarships, intl, library, stem, learning-spaces |
+| Hướng nghiệp (`career`) | `/career` | career-jobs, career-roadmap, career-predictive, internships, opportunities, opportunity-radar, analytics |
+| Cộng đồng (`community`) | `/community` | mentor, events, hackathon, leaderboard, hs-connection, volunteer, surveys |
+| Trợ lý AI (`ai`) | `/ai` | ai-chat, ai-agent, language-bridge, offline-tutor, knowledge-graph |
+| Đóng góp (`contribute`) | `/contribute` | impact-match, resource-exchange, impact-measurement, donate, marketplace |
+
+- `src/lib/feature-catalog.ts` vẫn là nguồn duy nhất: `FeatureGroupId` = 7 hub,
+  `featuresForGroup(id)` (hub trước, con sau) nuôi `HubTabBar`, `groupById(id)`
+  nuôi landing. `/features` + `FeatureQuickNav` tự ăn theo, đủ 40 tính năng.
+- `components/hubs/HubTabBar.tsx` (thay `CareerTabBar` đã xoá) + `HubLanding.tsx`.
+  `HubTabBar` gắn lên mọi trang con; tab trỏ `/map?tool=...` không bao giờ active
+  (khi ở `/map` không có tab bar) — không dùng `useSearchParams`.
+- `Sidebar.tsx`: highlight hub khi ở trang con (map pathname → group → hub);
+  bỏ nhãn nhóm (mỗi nhóm 1 mục nên nhãn trùng tên mục), thay bằng đường phân cách.
+- Redirect cũ (`/wifi`, `/green`, `/stem`, `/donate`, `/marketplace`,
+  `/learning-spaces`, `/climate-guardian`, `/ai-agent`, `/talk2map`, ...) giữ
+  nguyên trong `next.config.js`. Không đụng backend/BFF/API surface.
+- **Bỏ landing:** `app/page.tsx` giờ `redirect('/auth/login')` (server). Xoá
+  `components/landing/{HomeGate,EduMapLanding}.tsx` + `landing.module.css`.
+  `AppLayout` bỏ `pathname === '/'` khỏi `isFullScreen`; link thương hiệu
+  (`Sidebar`, `AppLayout`, `app/admin/layout.tsx`, `app/error.tsx`) đổi `/` → `/map`;
+  `public/manifest.json` `start_url` → `/map`.
+- Kiểm chứng local: `check_nav.py` (7 hub, 40 tính năng, mọi href có trang/tool) →
+  OK; cân bằng ngoặc toàn bộ file sửa → OK. `node_modules` không có nên không chạy
+  `tsc`; runtime truth = host sau khi deploy.

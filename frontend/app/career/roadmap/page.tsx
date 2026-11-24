@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Users, ChevronRight, Clock, BookOpen, CheckCircle2, GraduationCap, Map as MapIcon, TrendingUp, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { authService } from '../../../src/services/auth.service';
-import { CareerTabBar } from '@/components/career/CareerTabBar';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 import { aiService } from '../../../src/services/ai.service';
 export default function CareerRoadmapPage() {
     const [roadmap, setRoadmap] = useState<any>(null);
@@ -39,7 +39,7 @@ export default function CareerRoadmapPage() {
         }
     };
     return (<div className="min-h-screen bg-background text-foreground">
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
       <div className="w-full mx-auto p-8">
 
         <div className="mb-12 p-8 rounded-lg bg-card/50 border border-border">

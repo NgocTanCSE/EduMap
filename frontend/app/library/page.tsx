@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, BookMarked, Bookmark, Database, Download, ExternalLink, FileText, Info, Library, Loader2, Search, Video, } from 'lucide-react';
 import Link from 'next/link';
@@ -75,6 +76,7 @@ export default function LibraryPage() {
         fetchResources(1);
     };
     return (<main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 space-y-6">
+      <HubTabBar hubId="learn"/>
       <SectionHeader icon={Library} title="Thư viện học liệu" subtitle="Sách, video và tài liệu mở cho học sinh, sinh viên Biên Hoà." right={<Link href="/dashboard#da-luu" className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground">
             <Bookmark className="h-4 w-4"/> Đã lưu
           </Link>}/>

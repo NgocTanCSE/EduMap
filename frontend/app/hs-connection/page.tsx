@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { Users, UserPlus, Check, X, Search, MapPin, Loader2, Sparkles, UserCheck } from 'lucide-react';
 import { hsConnectionService, NetworkResponse, HSUser } from '../../src/services/hs-connection.service';
@@ -63,6 +64,7 @@ export default function HSConnectionPage() {
             </div>);
     }
     return (<div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+      <HubTabBar hubId="community"/>
             <div className="w-full mx-auto space-y-12">
 
                 <div className="text-center space-y-4 max-w-2xl mx-auto">

@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from "react";
 import { Package, PackageOpen, ClipboardList, Users, BrainCircuit, Sparkles, MapPin, Clock, Tag, TrendingUp, CheckCircle, AlertCircle, Loader2, Plus, ExternalLink, CalendarDays, Phone, Mail, RefreshCw, } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -419,6 +420,7 @@ export default function ResourceExchangePage() {
       </div>);
     };
     return (<ContentShell>
+      <HubTabBar hubId="contribute"/>
       <SectionHeader title="Resource Exchange AI — Kết nối cung ↔ cầu nguồn lực" subtitle="AI ghép nối sách, máy thiết bị và giờ tình nguyện dư thừa với nơi cần hỗ trợ trên toàn Việt Nam, kèm kế hoạch vận chuyển tối ưu." icon={Package} right={<div className="flex items-center gap-3">
             <Button onClick={() => setShowResourceModal(true)} variant="outline" size="sm">
               <Plus className="w-4 h-4 mr-1"/> Đăng nguồn lực

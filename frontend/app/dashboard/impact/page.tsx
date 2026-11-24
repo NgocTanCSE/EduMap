@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import { useEffect, useState, useCallback } from "react";
 import { BarChart3, RefreshCw, Download, CheckCircle2, TrendingUp, MapPin, Users, Clock, Award, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
@@ -195,6 +196,7 @@ export default function ImpactMeasurementPage() {
         setParams(p => ({ ...p, minLat: undefined, maxLat: undefined, minLng: undefined, maxLng: undefined, lat: 10.9525, lng: 106.8778, radiusKm: 15 }));
     };
     return (<div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+      <HubTabBar hubId="contribute"/>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-card p-6 rounded-2xl border border-border/80 shadow-sm">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-2">

@@ -2,7 +2,7 @@
   "name": "EduMap Biên Hòa - Bản đồ Giáo dục",
   "short_name": "EduMap",
   "description": "Hệ thống bản đồ giáo dục thông minh và kết nối cộng đồng tại Biên Hòa, Đồng Nai.",
-  "start_url": "/",
+  "start_url": "/map",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#eab308",

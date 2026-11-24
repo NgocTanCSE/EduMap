@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { analyticsService } from "../../../src/services/analytics.service";
 import { cn } from "@/src/lib/utils";
-import { CareerTabBar } from "@/components/career/CareerTabBar";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 type HistoricalPoint = {
     year: number;
     metric_value: number;
@@ -515,7 +515,7 @@ export default function AITrendsPage() {
       </main>);
     }
     return (<>
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
       <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
       <SectionHeader title="Xu hướng thị trường" subtitle="Diễn biến giáo dục 2022–2024 và nhu cầu kỹ năng từ các tin tuyển dụng đang hoạt động." icon={TrendingUp} right={<div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => fetchData(true)} disabled={refreshing}>

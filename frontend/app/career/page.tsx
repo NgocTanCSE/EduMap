@@ -4,7 +4,7 @@ import { Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target, 
 import { careerService } from '../../src/services/career.service';
 import { authService } from '../../src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
-import { CareerTabBar } from '@/components/career/CareerTabBar';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 function CareerDashboard() {
     const [stats, setStats] = useState({
         skillsCount: 0,
@@ -158,7 +158,7 @@ function CareerDashboard() {
 }
 export default function CareerPage() {
     return (<div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
 
       <div className="flex-1 overflow-y-auto">
         <div className="page-shell">

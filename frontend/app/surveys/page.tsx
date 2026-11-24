@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { ClipboardList, ArrowRight, Loader2, Calendar, FileText } from 'lucide-react';
 import { surveyService, Survey } from '../../src/services/survey.service';
@@ -24,6 +25,7 @@ export default function SurveysPage() {
         }
     };
     return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+      <HubTabBar hubId="community"/>
       <div className="w-full mx-auto space-y-12">
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">

@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronLeft, BookOpen, Globe, Volume2, Play, Pause, Square, Send, Sparkles, AlertCircle, RefreshCw, Download, ExternalLink, Languages, FileText, Info, Check, X, Copy, RotateCcw, VolumeX } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
@@ -230,6 +231,7 @@ export default function LanguageBridgePage() {
     if (!user)
         return null;
     return (<div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background text-foreground px-3 sm:px-6 lg:px-8 xl:px-10 py-5 sm:py-8 space-y-6">
+      <HubTabBar hubId="ai"/>
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden"/>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-5 sm:p-6 rounded-2xl border border-border/80 shadow-sm">

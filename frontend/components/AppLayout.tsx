@@ -12,7 +12,7 @@ export default function AppLayout({ children }: {
     children: React.ReactNode;
 }) {
     const pathname = usePathname() || '';
-    const isFullScreen = pathname === '/' || FULL_SCREEN_PREFIXES.some((p) => pathname.startsWith(p));
+    const isFullScreen = FULL_SCREEN_PREFIXES.some((p) => pathname.startsWith(p));
     const [mobileOpen, setMobileOpen] = useState(false);
     useEffect(() => {
         setMobileOpen(false);
@@ -53,7 +53,7 @@ export default function AppLayout({ children }: {
           <button type="button" onClick={() => setMobileOpen(true)} aria-label="Mở menu điều hướng" aria-expanded={mobileOpen} aria-controls="app-sidebar" className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:text-foreground">
             <Menu className="h-5 w-5"/>
           </button>
-          <Link href="/" className="flex items-center gap-2 text-base font-semibold text-foreground">
+          <Link href="/map" className="flex items-center gap-2 text-base font-semibold text-foreground">
             <EduMapLogo className="h-6 w-6 text-primary"/>
             <span>
               Edu<span className="text-primary">Map</span>

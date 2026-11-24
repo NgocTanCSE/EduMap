@@ -1,4 +1,5 @@
 'use client';
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AlertTriangle, BookOpen, CheckCircle2, CloudOff, Loader2, PencilLine, Target, Timer, } from 'lucide-react';
@@ -210,6 +211,7 @@ export default function OfflineTutorPage() {
     const isModelReady = modelStatus?.model_loaded === true;
     const isModelFailed = modelStatus?.model_failed === true;
     return (<div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-dvh">
+      <HubTabBar hubId="ai"/>
       <div className="border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex items-center justify-between">

@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { Trophy, Medal, Crown, Star, TrendingUp, Users, Loader2, Target, Award } from 'lucide-react';
 import { gamificationService, LeaderboardUser, UserProgress } from '../../src/services/gamification.service';
@@ -62,6 +63,7 @@ export default function LeaderboardPage() {
     const topThree = users.slice(0, 3);
     const others = users.slice(3);
     return (<div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+      <HubTabBar hubId="community"/>
       <div className="w-full mx-auto space-y-12">
 
         <div className="text-center space-y-4">

@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { Code, Users, Calendar, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -35,6 +36,7 @@ export default function HackathonListPage() {
     };
     const filteredHackathons = hackathons.filter(h => h.title.toLowerCase().includes(searchTerm.toLowerCase()));
     return (<ContentShell>
+      <HubTabBar hubId="community"/>
       <SectionHeader title="Sân chơi Hackathon" subtitle="Nơi hội tụ những ý tưởng đột phá và giải pháp công nghệ." icon={Trophy}/>
 
       <div className="rounded-[22px] border border-border/80 bg-card p-6 md:p-8 shadow-orvel">

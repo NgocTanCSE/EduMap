@@ -5,7 +5,7 @@ import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-import { CareerTabBar } from '@/components/career/CareerTabBar';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 export default function JobsPage() {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ export default function JobsPage() {
         fetchJobs();
     };
     return (<div className="min-h-screen bg-background text-foreground">
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
       <div className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="w-full mx-auto space-y-8">
           <header className="space-y-4">

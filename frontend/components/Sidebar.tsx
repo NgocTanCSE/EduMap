@@ -9,7 +9,7 @@ import { EduMapLogo } from "@/components/ui/Logo";
 import { AnimatedThemeToggler } from "@/components/ui/magic/AnimatedThemeToggler";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 import { SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPSED_WIDTH, setSidebarWidthVar, } from "@/src/lib/layout-constants";
-import { SIDEBAR_GROUPS, type Feature, type FeatureGroup, } from "@/src/lib/feature-catalog";
+import { SIDEBAR_GROUPS, FEATURES, type Feature, type FeatureGroup, } from "@/src/lib/feature-catalog";
 type NavItem = Feature;
 type NavGroup = FeatureGroup & {
     items: Feature[];
@@ -35,10 +35,7 @@ function NavGroup({ group, activeHref, onNavigate, collapsed = false, }: {
         </nav>
       </div>);
     }
-    return (<div className="mb-5">
-      <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">
-        {group.label}
-      </p>
+    return (<div className="mb-1">
       <nav className="space-y-0.5">
         {group.items.map((item) => {
             const Icon = item.icon;
@@ -162,9 +159,15 @@ export default function Sidebar({ mobileOpen = false, onClose, }: {
         if (mobileOpen)
             closeButtonRef.current?.focus();
     }, [mobileOpen]);
-    const activeHref = SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.href))
-        .filter((href) => pathname === href || pathname.startsWith(href + "/"))
-        .sort((a, b) => b.length - a.length)[0] || "";
+    const activeHref = React.useMemo(() => {
+        const match = FEATURES.map((feature) => ({ feature, path: feature.href.split("?")[0] }))
+            .filter(({ path }) => pathname === path || pathname.startsWith(path + "/"))
+            .sort((a, b) => b.path.length - a.path.length)[0];
+        if (!match)
+            return "";
+        const hub = FEATURES.find((feature) => feature.group === match.feature.group && feature.sidebar);
+        return hub ? hub.href : match.feature.href;
+    }, [pathname]);
     return (<>
       {mobileOpen && (<div className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden" onClick={onClose} aria-hidden="true"/>)}
 
@@ -174,7 +177,7 @@ export default function Sidebar({ mobileOpen = false, onClose, }: {
         <div className={`border-b border-border flex ${sidebarCollapsed
             ? "flex-col items-center py-3 px-1 gap-2"
             : "items-center justify-between p-4 gap-2"}`}>
-          <Link href="/" onClick={onClose} className={`flex items-center gap-2.5 font-semibold text-foreground ${sidebarCollapsed ? "justify-center" : "text-lg"}`} title="EduMap">
+          <Link href="/map" onClick={onClose} className={`flex items-center gap-2.5 font-semibold text-foreground ${sidebarCollapsed ? "justify-center" : "text-lg"}`} title="EduMap">
             <EduMapLogo className="h-7 w-7 text-primary shrink-0"/>
             {!sidebarCollapsed && (<span>
                 Edu<span className="text-primary">Map</span>
@@ -191,7 +194,9 @@ export default function Sidebar({ mobileOpen = false, onClose, }: {
         
         <div className={`flex-1 overflow-y-auto scrollbar-hide ${sidebarCollapsed ? "py-3 px-1 space-y-2" : "py-4 px-1"}`}>
           {SIDEBAR_GROUPS.map((group, idx) => (<React.Fragment key={group.label}>
-              {sidebarCollapsed && idx > 0 && (<div className="w-7 h-px bg-border/60 mx-auto my-2"/>)}
+              {idx > 0 && (sidebarCollapsed
+                ? <div className="w-7 h-px bg-border/60 mx-auto my-2"/>
+                : <div className="mx-3 my-1.5 h-px bg-border/50"/>)}
               <NavGroup group={group} activeHref={activeHref} onNavigate={onClose} collapsed={sidebarCollapsed}/>
             </React.Fragment>))}
         </div>

@@ -28,9 +28,9 @@ export default function Error({ error, reset, }: {
             <RotateCcw className="h-4 w-4"/>
             Thử lại
           </Button>
-          <Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-primary/20 px-4 text-sm font-medium text-foreground transition-colors hover:bg-primary/10">
+          <Link href="/map" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-primary/20 px-4 text-sm font-medium text-foreground transition-colors hover:bg-primary/10">
             <Home className="h-4 w-4"/>
-            Về trang chủ
+            Về bản đồ
           </Link>
         </div>
       </div>

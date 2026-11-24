@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { MessageSquare, Heart, Share2, Search, Users, TrendingUp, Flame, ShieldAlert, FileText, X, CheckCircle2, Bookmark } from 'lucide-react';
@@ -151,6 +152,7 @@ export default function CommunityPage() {
         return '@edumap_member';
     };
     return (<div className="min-h-screen bg-background text-foreground w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8">
+      <HubTabBar hubId="community"/>
       <div className="w-full flex flex-col lg:flex-row gap-8 items-start">
 
         

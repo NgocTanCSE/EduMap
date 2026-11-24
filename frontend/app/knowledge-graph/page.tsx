@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Search, Network, Info, X, ExternalLink, Target, Maximize2, Minimize2, Sparkles } from "lucide-react";
@@ -113,6 +114,7 @@ export default function KnowledgeGraphPage() {
       </div>);
     }
     return (<ContentShell>
+      <HubTabBar hubId="ai"/>
       <SectionHeader title="AI Knowledge Graph" subtitle="Liên kết trường học, nhu cầu, học bổng, nhà tài trợ và tài nguyên. Nhấp vào một node để khám phá mối quan hệ 1-degree." icon={Network}/>
 
       <Card className="p-4">

@@ -4,7 +4,7 @@ import { BrainCircuit, Star, Compass, ArrowRight, ShieldCheck, Zap, Activity, Bo
 import { careerService } from '../../../src/services/career.service';
 import { authService } from '../../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
-import { CareerTabBar } from '@/components/career/CareerTabBar';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 interface CareerPath {
     title: string;
     match_score: number;
@@ -72,7 +72,7 @@ export default function PredictiveCareerPage() {
       </div>);
     }
     return (<div className="min-h-screen bg-background text-foreground">
-      <CareerTabBar />
+      <HubTabBar hubId="career" />
       <div className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="w-full mx-auto space-y-12">
 

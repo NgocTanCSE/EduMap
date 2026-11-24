@@ -26,7 +26,7 @@ export default function AdminLayout({ children }: {
             }
             if (!authService.isAdmin()) {
                 setIsAuthorized(false);
-                setTimeout(() => router.replace('/'), 3000);
+                setTimeout(() => router.replace('/map'), 3000);
                 return;
             }
             setIsAuthorized(true);
@@ -43,9 +43,9 @@ export default function AdminLayout({ children }: {
         <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-lg max-w-md">
            <Lock className="w-16 h-16 text-destructive mx-auto mb-6"/>
            <h2 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h2>
-           <p className="text-muted-foreground/60 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về trang chủ.</p>
-           <Link href="/" className="px-8 py-3 bg-card text-foreground font-bold rounded-lg hover:bg-muted transition-all">
-              VỀ TRANG CHỦ
+           <p className="text-muted-foreground/60 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về bản đồ.</p>
+           <Link href="/map" className="px-8 py-3 bg-card text-foreground font-bold rounded-lg hover:bg-muted transition-all">
+              VỀ BẢN ĐỒ
            </Link>
         </div>
       </div>);
@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: {
     return (<div className="flex min-h-screen bg-background">
       <aside className="w-72 border-r border-border bg-card/50  flex flex-col fixed h-full z-50">
         <div className="p-8">
-           <Link href="/" className="flex items-center gap-3 group">
+           <Link href="/map" className="flex items-center gap-3 group">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg ">
                  <Globe className="w-6 h-6 text-primary-foreground"/>
               </div>

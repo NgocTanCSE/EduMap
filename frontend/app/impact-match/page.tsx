@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import { useEffect, useState } from 'react';
 import { Target, BrainCircuit, Sparkles, DollarSign, MapPin, Clock, TrendingUp, CheckCircle, AlertCircle, Loader2, Plus, X, RefreshCw, } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -302,6 +303,7 @@ export default function ImpactMatchPage() {
       </Card>);
     };
     return (<ContentShell>
+      <HubTabBar hubId="contribute"/>
       <SectionHeader title="ImpactMatch — Ghép nhu cầu ↔ Nhà tài trợ" subtitle="Hệ thống AI giúp nguồn lực đến đúng nơi cần: kết nối nhu cầu giáo dục với nhà tài trợ phù hợp dựa trên chi phí, khu vực và lĩnh vực." icon={Target} right={<div className="flex items-center gap-3">
             <Button onClick={() => setShowNeedModal(true)} variant="outline" size="sm">
               <Plus className="w-4 h-4 mr-1"/>

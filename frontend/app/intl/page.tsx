@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { Globe, PlaneTakeoff, GraduationCap, MapPin, Users, Loader2, ArrowRight, Search, Navigation } from 'lucide-react';
 import { intlService, InternationalProgram, AlumniNetwork } from '../../src/services/intl.service';
@@ -120,6 +121,7 @@ export default function IntlPage() {
         (a.major || '').toLowerCase().includes(alumniSearch.toLowerCase()));
     const paginatedAlumni = filteredAlumni.slice((alumniPage - 1) * alumniPageSize, alumniPage * alumniPageSize);
     return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8 relative">
+      <HubTabBar hubId="learn"/>
 
       {showJoinModal && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 max-w-md w-full relative shadow-xl">

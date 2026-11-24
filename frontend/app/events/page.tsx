@@ -1,4 +1,5 @@
 "use client";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import React, { useEffect, useState } from 'react';
 import { Calendar, MapPin, Users, ArrowRight, Plus, ExternalLink } from 'lucide-react';
 import { eventsService, Event } from '../../src/services/events.service';
@@ -40,6 +41,7 @@ export default function EventsListPage() {
     const filteredEvents = events.filter(event => event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (event.location || '').toLowerCase().includes(searchTerm.toLowerCase()));
     return (<ContentShell>
+      <HubTabBar hubId="community"/>
       <SectionHeader title="Workshop & Sự kiện" subtitle="Nâng cao kiến thức và kết nối cùng cộng đồng EduMap." icon={Calendar} right={<a href="/events/create" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/85">
             <Plus className="h-4 w-4"/> Tạo sự kiện
           </a>}/>
