@@ -1,7 +1,7 @@
 "use client";
 import { X, MapPin, Star, ExternalLink, Navigation } from "lucide-react";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { getPinTheme, PIN_LEGEND } from "@/components/map/PinTheme";
+import { getPinTheme, PIN_LEGEND } from "@/components/map/pin-themes";
 import type { FeaturedPin } from "@/components/map/FeaturedPinsLayer";
 interface FeaturedPinCardProps {
     pin: FeaturedPin;

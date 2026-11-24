@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 import { FeaturedPinCard } from "@/components/map/FeaturedPinCard";
-import { PIN_LEGEND } from "@/components/map/PinTheme";
+import { PIN_LEGEND } from "@/components/map/pin-themes";
 const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
     ssr: false,
     loading: () => (<div className="h-full w-full flex items-center justify-center bg-background">

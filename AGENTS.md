@@ -2468,6 +2468,14 @@ trang hub và truy cập qua `HubTabBar`:
   `/auth/login?redirect=/career`.
 - `app/sitemap.ts` bỏ `/` (giờ chuyển hướng) và thêm `/learn`, `/ai`,
   `/contribute`, `/impact`.
+- **Tách dữ liệu ghim khỏi leaflet (fix CI build):** `app/map/page.tsx` và
+  `FeaturedPinCard.tsx` được SSR lúc prerender `/map`, nên không được import
+  `components/map/PinTheme.tsx` (file này `import L from "leaflet"` → server
+  `ReferenceError: window is not defined`). Dữ liệu thuần (`PIN_THEMES`,
+  `getPinTheme`, `PIN_LEGEND`/`POI_LEGEND`/`ANALYSIS_LEGEND`, types) chuyển sang
+  `components/map/pin-themes.ts` (không leaflet); `PinTheme.tsx` `export *` lại
+  và giữ các hàm cần leaflet (`createPinIcon`, `createClusterIcon`). Hai file
+  SSR giờ import từ `pin-themes`.
 - Không đụng backend/BFF/API. Kiểm chứng local: `check_nav.py` OK; 0 href trùng,
   0 label trùng, 0 mục `href` chéo hub; cân bằng ngoặc + import thừa các file sửa
   đều sạch. `node_modules` không có nên không chạy `tsc`; runtime truth = host.
