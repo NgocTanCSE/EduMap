@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { Briefcase, MapPin, DollarSign, Clock, Building2, ArrowUpRight, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Briefcase, MapPin, DollarSign, Clock, Building2, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { internshipService, Internship } from '../../src/services/internship.service';
 import { toast } from "@/src/lib/toast";
@@ -12,6 +12,7 @@ import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';
+import { HubTabBar } from '@/components/hubs/HubTabBar';
 export default function InternshipPage() {
     const [internships, setInternships] = useState<Internship[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function InternshipPage() {
         (job.location || '').toLowerCase().includes(searchTerm.toLowerCase()));
     const paginatedInternships = filteredInternships.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     return (<ContentShell>
+      <HubTabBar hubId="career"/>
       <SectionHeader title="Cơ hội Thực tập" subtitle="Tìm kiếm các vị trí thực tập tốt nhất từ các đối tác doanh nghiệp của EduMap." icon={Briefcase} right={<span className="text-xs text-muted-foreground">{filteredInternships.length} vị trí khả dụng</span>}/>
 
       <SearchInput value={searchTerm} onChange={(val) => {

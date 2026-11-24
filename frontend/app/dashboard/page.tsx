@@ -6,7 +6,7 @@ import { Loader2, LogOut, User, Settings, ShieldCheck, BookOpen, Award, Users, M
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "../../src/services/dashboard.service";
 import { PersonalHub } from "@/components/dashboard/PersonalHub";
-import { FeatureQuickNav } from "@/components/dashboard/FeatureQuickNav";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 export default function DashboardPage() {
     const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
@@ -79,6 +79,7 @@ export default function DashboardPage() {
         year: "numeric",
     }).format(new Date());
     return (<main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 space-y-8">
+      <HubTabBar hubId="personal"/>
       <section className="relative overflow-hidden rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel flex flex-col md:flex-row md:items-end justify-between gap-6">
         <InteractiveGridPattern className="opacity-35 [mask-image:radial-gradient(450px_circle_at_top_right,white,transparent)]"/>
         <div className="relative z-10">
@@ -242,7 +243,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
-      <FeatureQuickNav />
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex flex-col justify-between">
           <div>

@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target, TrendingUp, BrainCircuit, Compass, BarChart3, LogIn, } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target, TrendingUp, LogIn, } from 'lucide-react';
 import { careerService } from '../../src/services/career.service';
 import { authService } from '../../src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
@@ -58,7 +58,7 @@ function CareerDashboard() {
           </p>
           <button type="button" onClick={() => {
                 if (typeof window !== 'undefined') {
-                    window.location.href = '/login?callbackUrl=/career';
+                    window.location.href = '/auth/login?redirect=/career';
                 }
             }} className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm">
             <LogIn size={16}/>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, Layers, Search, X } from "lucide-react";
 import SectionHeader from "@/components/ui/SectionHeader";
 import EmptyState from "@/components/ui/EmptyState";
+import { HubTabBar } from "@/components/hubs/HubTabBar";
 import { FEATURES, FEATURE_GROUPS, matchesFeature, type FeatureGroupId, } from "@/src/lib/feature-catalog";
 const ALL_GROUPS = "all" as const;
 type GroupFilter = typeof ALL_GROUPS | FeatureGroupId;
@@ -18,6 +19,7 @@ export default function FeaturesHubPage() {
         items: filtered.filter((feature) => feature.group === group.id),
     })).filter((group) => group.items.length > 0), [filtered]);
     return (<main className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+      <HubTabBar hubId="personal"/>
       <div className="relative overflow-hidden rounded-[24px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel space-y-6">
         <InteractiveGridPattern className="opacity-30 [mask-image:radial-gradient(500px_circle_at_top,white,transparent)]"/>
         <div className="relative z-10 space-y-6">

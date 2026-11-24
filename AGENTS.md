@@ -2409,20 +2409,26 @@ trang hub và truy cập qua `HubTabBar`:
 
 | Hub | Landing | Tính năng con |
 |---|---|---|
-| Bảng điều khiển (`personal`) | `/dashboard` | Tất cả tính năng `/features` |
-| Bản đồ (`map`) | `/map` | green, summer, wifi (14 tool trong panel map) |
-| Học tập (`learn`) | `/learn` | scholarships, intl, library, stem, learning-spaces |
+| Bảng điều khiển (`personal`) | `/dashboard` | `features` (`/features`) |
+| Bản đồ (`map`) | `/map` | 14 tool trong panel map: green, summer, wifi, stem, learning-space, ai-agent, donate, market, data-hunter, gap-predictor, resource-optimizer, geo-vision, survey-planner, climate |
+| Học tập (`learn`) | `/learn` | scholarships, intl, library |
 | Hướng nghiệp (`career`) | `/career` | career-jobs, career-roadmap, career-predictive, internships, opportunities, opportunity-radar, analytics |
 | Cộng đồng (`community`) | `/community` | mentor, events, hackathon, leaderboard, hs-connection, volunteer, surveys |
-| Trợ lý AI (`ai`) | `/ai` | ai-chat, ai-agent, language-bridge, offline-tutor, knowledge-graph |
-| Đóng góp (`contribute`) | `/contribute` | impact-match, resource-exchange, impact-measurement, donate, marketplace |
+| Trợ lý AI (`ai`) | `/ai` | ai-chat, language-bridge, offline-tutor, knowledge-graph |
+| Đóng góp (`contribute`) | `/contribute` | impact-match, resource-exchange, impact-measurement (`/impact`) |
 
 - `src/lib/feature-catalog.ts` vẫn là nguồn duy nhất: `FeatureGroupId` = 7 hub,
   `featuresForGroup(id)` (hub trước, con sau) nuôi `HubTabBar`, `groupById(id)`
-  nuôi landing. `/features` + `FeatureQuickNav` tự ăn theo, đủ 40 tính năng.
+  nuôi landing. `/features` tự ăn theo, đủ 46 tính năng.
+- **Mỗi tính năng chỉ thuộc một hub.** Mọi công cụ bản đồ (kể cả `stem`,
+  `learning-space`, `ai-agent`, `donate`, `marketplace`) nằm trong nhóm `map`;
+  `learn`/`ai`/`contribute` không còn mục nào trỏ `/map?tool=...`.
+  `impact-measurement` chuyển route từ `/dashboard/impact` sang `/impact`
+  (BFF `GET /api/dashboard/impact` giữ nguyên).
 - `components/hubs/HubTabBar.tsx` (thay `CareerTabBar` đã xoá) + `HubLanding.tsx`.
-  `HubTabBar` gắn lên mọi trang con; tab trỏ `/map?tool=...` không bao giờ active
-  (khi ở `/map` không có tab bar) — không dùng `useSearchParams`.
+  `HubTabBar` gắn lên **mọi trang con** (kể cả `/dashboard`, `/features`,
+  `/internships`, `/impact`); `HubLanding` chỉ vẽ lưới card của hub, không lặp
+  lại tab bar trên cùng trang.
 - `Sidebar.tsx`: highlight hub khi ở trang con (map pathname → group → hub);
   bỏ nhãn nhóm (mỗi nhóm 1 mục nên nhãn trùng tên mục), thay bằng đường phân cách.
 - Redirect cũ (`/wifi`, `/green`, `/stem`, `/donate`, `/marketplace`,
@@ -2433,6 +2439,35 @@ trang hub và truy cập qua `HubTabBar`:
   `AppLayout` bỏ `pathname === '/'` khỏi `isFullScreen`; link thương hiệu
   (`Sidebar`, `AppLayout`, `app/admin/layout.tsx`, `app/error.tsx`) đổi `/` → `/map`;
   `public/manifest.json` `start_url` → `/map`.
-- Kiểm chứng local: `check_nav.py` (7 hub, 40 tính năng, mọi href có trang/tool) →
+- Kiểm chứng local: `check_nav.py` (7 hub, 46 tính năng, mọi href có trang/tool) →
   OK; cân bằng ngoặc toàn bộ file sửa → OK. `node_modules` không có nên không chạy
   `tsc`; runtime truth = host sau khi deploy.
+
+### 28.1 Dedupe sâu sau khi gộp hub (2026-11-24)
+
+Đợt gộp đầu còn để lọt nhiều tính năng trùng (ví dụ hub Học tập vẫn trỏ
+`/map?tool=stem`). Đã xử lý:
+
+- **Công cụ bản đồ chỉ thuộc hub Bản đồ.** `learn` mất `stem`, `learning-spaces`;
+  `ai` mất `ai-agent`; `contribute` mất `donate`, `marketplace`. Cả 14 tool
+  (`core` + `analysis`) đều có mục trong catalog nhóm `map`, nên chúng hiện trên
+  `/features` và chỉ mở từ panel `/map`.
+- **`impact-measurement`** đổi href `/dashboard/impact` → `/impact`; trang được
+  `git mv` sang `app/impact/page.tsx`, giữ `HubTabBar hubId="contribute"`.
+- **Bỏ `FeatureQuickNav`** (`components/dashboard/FeatureQuickNav.tsx`): nó render
+  lại toàn bộ catalog trùng `/features`. `/dashboard` + `/features` giờ đều có
+  `HubTabBar hubId="personal"`; `/features` là nơi duy nhất liệt kê toàn bộ.
+- **`HubLanding` không còn render `HubTabBar`** (tab + lưới card trùng nhau trên
+  cùng trang). `/learn`, `/ai`, `/contribute` chỉ còn lưới card; tab bar nằm ở
+  các trang con.
+- **Một nguồn cho danh mục ghim bản đồ:** `components/map/PinTheme.tsx`
+  (`PIN_THEMES`, `PIN_LEGEND`). `app/map/page.tsx` (chú giải ghim) và
+  `components/map/FeaturedPinCard.tsx` đọc từ đó thay vì khai báo lại
+  label/icon/color.
+- **Link chết:** `app/career/page.tsx` đổi `/login?callbackUrl=/career` →
+  `/auth/login?redirect=/career`.
+- `app/sitemap.ts` bỏ `/` (giờ chuyển hướng) và thêm `/learn`, `/ai`,
+  `/contribute`, `/impact`.
+- Không đụng backend/BFF/API. Kiểm chứng local: `check_nav.py` OK; 0 href trùng,
+  0 label trùng, 0 mục `href` chéo hub; cân bằng ngoặc + import thừa các file sửa
+  đều sạch. `node_modules` không có nên không chạy `tsc`; runtime truth = host.

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
-import { HubTabBar } from "./HubTabBar";
 import { FEATURES, groupById, type FeatureGroupId } from "@/src/lib/feature-catalog";
 
 interface HubLandingProps {
@@ -18,7 +17,6 @@ export function HubLanding({ hubId }: HubLandingProps) {
     }
     const GroupIcon = group.icon;
     return (<ContentShell>
-      <HubTabBar hubId={hubId}/>
       <SectionHeader icon={GroupIcon} title={group.label} subtitle={group.description} right={<span className="inline-flex items-center rounded-full border border-border bg-secondary/80 px-3 py-1 text-xs font-semibold text-foreground/80">
             {items.length} tính năng
           </span>}/>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import MapMenu, { type MapMenuItem } from "@/components/map/MapMenu";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, AlertCircle, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, Heart, ShoppingCart, } from "lucide-react";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, AlertCircle, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 import { FeaturedPinCard } from "@/components/map/FeaturedPinCard";
+import { PIN_LEGEND } from "@/components/map/PinTheme";
 const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
     ssr: false,
     loading: () => (<div className="h-full w-full flex items-center justify-center bg-background">
@@ -859,14 +860,7 @@ export default function MapPage() {
             </button>
           </div>
           <div className="p-2.5 space-y-1.5">
-            {[
-                { cat: "stem", label: "STEM", color: "text-destructive", icon: Atom },
-                { cat: "green", label: "Xanh", color: "text-green-600", icon: Leaf },
-                { cat: "summer", label: "Mùa hè", color: "text-orange-500", icon: GraduationCap },
-                { cat: "wifi", label: "Wifi", color: "text-amber-400", icon: Wifi },
-                { cat: "donate", label: "Quyên góp", color: "text-red-500", icon: Heart },
-                { cat: "market", label: "Chợ", color: "text-primary", icon: ShoppingCart },
-            ].map(({ cat, label, color, icon: Icon }) => {
+            {PIN_LEGEND.map(({ category: cat, label, color, icon: Icon }) => {
                 const visible = visiblePinCategories.has(cat);
                 return (<button key={cat} onClick={() => togglePinCategory(cat)} className="w-full flex items-center gap-2 text-left text-xs p-1.5 rounded hover:bg-muted/40 transition-colors">
                   <div className={`w-5 h-5 flex items-center justify-center ${color}`}>

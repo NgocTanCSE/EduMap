@@ -1,7 +1,7 @@
 "use client";
-import React from "react";
-import { X, MapPin, Star, ExternalLink, Atom, Leaf, GraduationCap, Wifi, ShoppingCart, Heart, Navigation } from "lucide-react";
+import { X, MapPin, Star, ExternalLink, Navigation } from "lucide-react";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
+import { getPinTheme, PIN_LEGEND } from "@/components/map/PinTheme";
 import type { FeaturedPin } from "@/components/map/FeaturedPinsLayer";
 interface FeaturedPinCardProps {
     pin: FeaturedPin;
@@ -18,37 +18,12 @@ const MAP_TOOL_FOR_CATEGORY: Record<string, string> = {
     donate: "donate",
     market: "market",
 };
-const CATEGORY_LABELS: Record<string, string> = {
-    stem: "Phòng thí nghiệm STEM",
-    green: "Thử thách sống xanh",
-    summer: "Chiến dịch mùa hè",
-    wifi: "Trạm Wifi",
-    donate: "Quyên góp",
-    market: "Chợ & trao đổi",
-};
-const CATEGORY_ICONS: Record<string, React.ComponentType<{
-    className?: string;
-}>> = {
-    stem: Atom,
-    green: Leaf,
-    summer: GraduationCap,
-    wifi: Wifi,
-    market: ShoppingCart,
-    donate: Heart,
-};
-const CATEGORY_COLORS: Record<string, string> = {
-    stem: "text-destructive",
-    green: "text-green-600",
-    summer: "text-orange-500",
-    wifi: "text-amber-400",
-    market: "text-primary",
-    donate: "text-red-500",
-};
 export function FeaturedPinCard({ pin, onClose, onGo, onOpenTool, onRoute }: FeaturedPinCardProps) {
     const cat = (pin.category || "default").toLowerCase();
-    const CatIcon = CATEGORY_ICONS[cat] || Star;
-    const catColor = CATEGORY_COLORS[cat] || "text-accent";
-    const catLabel = CATEGORY_LABELS[cat] || pin.category;
+    const theme = getPinTheme(cat);
+    const CatIcon = theme.icon;
+    const catColor = theme.color;
+    const catLabel = PIN_LEGEND.find((item) => item.category === cat)?.label || pin.category;
     return (<div className="card-surface p-3">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
