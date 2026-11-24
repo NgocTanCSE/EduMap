@@ -724,7 +724,7 @@ export default function MapPage() {
     ];
     if (!user)
         return null;
-    return (<div className="h-[calc(100dvh-3.5rem)] w-full bg-background relative lg:h-screen overflow-hidden">
+    return (<div className="h-dvh w-full bg-background relative overflow-hidden">
       
       <main className="absolute inset-0 z-0">
         <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections} directionsTarget={directionsTarget} focusTarget={focusTarget}/>

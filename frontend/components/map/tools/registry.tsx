@@ -1,7 +1,7 @@
 "use client";
 import type { MapTool } from "./types";
 import dynamic from "next/dynamic";
-import { Target, Flame, ThermometerSun, Camera, CloudRain, Wifi, Leaf, Bot, BookOpen, Atom, Sun, Heart, ShoppingCart, } from "lucide-react";
+import { Target, Flame, Banknote, Camera, CloudRain, Wifi, Leaf, BookOpen, Atom, Sun, Heart, ShoppingCart, } from "lucide-react";
 const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
     {
         id: "data-hunter",
@@ -29,8 +29,8 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         id: "resource-optimizer",
         label: "Tối ưu nguồn lực",
         longLabel: "Tối ưu nguồn lực",
-        icon: ThermometerSun,
-        description: "Đề xuất phân bổ nguồn lực để khai thác hiệu quả các cơ sự giáo dục.",
+        icon: Banknote,
+        description: "Đề xuất phân bổ nguồn lực để khai thác hiệu quả các cơ sở giáo dục.",
         longDescription: "Tính toán kế hoạch đầu tư tối ưu dựa trên ngân sách và nhu cầu thực tế.",
         authRequired: false,
         hideBaseLayers: false,
@@ -42,7 +42,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longLabel: "GeoVision AI",
         icon: Camera,
         description: "Phát hiện cơ sở giáo dục mới từ ảnh vệ tinh qua AI.",
-        longDescription: "Dò tìm trường học/chợ học chưa được đưa vào bản đồ bằng AI nhận dạng ảnh vệ tinh.",
+        longDescription: "Dò tìm trường học/cơ sở học tập chưa được đưa vào bản đồ bằng AI nhận dạng ảnh vệ tinh.",
         authRequired: false,
         hideBaseLayers: false,
         tier: "analysis",
@@ -68,17 +68,6 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         authRequired: false,
         hideBaseLayers: false,
         tier: "core",
-    },
-    {
-        id: "ai-agent",
-        label: "AI Agent",
-        longLabel: "AI Agent bản đồ",
-        icon: Bot,
-        description: "Chat tự nhiên → truy vấn GIS qua AI agent.",
-        longDescription: "Nhập câu hỏi bằng ngôn ngữ tự nhiên, AI chuyển thành truy vấn bản đồ và hiển thị kết quả.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "analysis",
     },
     {
         id: "wifi",
@@ -164,7 +153,6 @@ const ResourceOptimizerPanel = dynamic(() => import("./ResourceOptimizerTool").t
 const GeoVisionPanel = dynamic(() => import("./GeoVisionTool").then((m) => m.GeoVisionPanel), { ssr: false });
 const SurveyPlannerPanel = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerPanel), { ssr: false });
 const ClimateGuardianPanel = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianPanel), { ssr: false });
-const AiAgentPanel = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentPanel), { ssr: false });
 const WifiPanel = dynamic(() => import("./WifiTool").then((m) => m.WifiPanel), { ssr: false });
 const GreenPanel = dynamic(() => import("./GreenTool").then((m) => m.GreenPanel), { ssr: false });
 const LearningSpacePanel = dynamic(() => import("./LearningSpaceTool").then((m) => m.LearningSpacePanel), { ssr: false });
@@ -178,7 +166,6 @@ const ResourceOptimizerOverlay = dynamic(() => import("./ResourceOptimizerTool")
 const GeoVisionOverlay = dynamic(() => import("./GeoVisionTool").then((m) => m.GeoVisionOverlay), { ssr: false });
 const SurveyPlannerOverlay = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerOverlay), { ssr: false });
 const ClimateGuardianOverlay = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianOverlay), { ssr: false });
-const AiAgentOverlay = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentOverlay), { ssr: false });
 const WifiOverlay = dynamic(() => import("./WifiTool").then((m) => m.WifiOverlay), { ssr: false });
 const GreenOverlay = dynamic(() => import("./GreenTool").then((m) => m.GreenOverlay), { ssr: false });
 const LearningSpaceOverlay = dynamic(() => import("./LearningSpaceTool").then((m) => m.LearningSpaceOverlay), { ssr: false });
@@ -186,50 +173,22 @@ const StemOverlay = dynamic(() => import("./StemTool").then((m) => m.StemOverlay
 const SummerOverlay = dynamic(() => import("./SummerTool").then((m) => m.SummerOverlay), { ssr: false });
 const DonateOverlay = dynamic(() => import("./DonateTool").then((m) => m.DonateOverlay), { ssr: false });
 const MarketOverlay = dynamic(() => import("./MarketTool").then((m) => m.MarketOverlay), { ssr: false });
-export const MAP_TOOLS: MapTool[] = [
-    {
-        ...TOOL_META[0], Panel: DataHunterPanel, Overlay: DataHunterOverlay,
-    },
-    {
-        ...TOOL_META[1], Panel: GapPredictorPanel, Overlay: GapPredictorOverlay,
-    },
-    {
-        ...TOOL_META[2], Panel: ResourceOptimizerPanel, Overlay: ResourceOptimizerOverlay,
-    },
-    {
-        ...TOOL_META[3], Panel: GeoVisionPanel, Overlay: GeoVisionOverlay,
-    },
-    {
-        ...TOOL_META[4], Panel: SurveyPlannerPanel, Overlay: SurveyPlannerOverlay,
-    },
-    {
-        ...TOOL_META[5], Panel: ClimateGuardianPanel, Overlay: ClimateGuardianOverlay,
-    },
-    {
-        ...TOOL_META[6], Panel: AiAgentPanel, Overlay: AiAgentOverlay,
-    },
-    {
-        ...TOOL_META[7], Panel: WifiPanel, Overlay: WifiOverlay,
-    },
-    {
-        ...TOOL_META[8], Panel: GreenPanel, Overlay: GreenOverlay,
-    },
-    {
-        ...TOOL_META[9], Panel: LearningSpacePanel, Overlay: LearningSpaceOverlay,
-    },
-    {
-        ...TOOL_META[10], Panel: StemPanel, Overlay: StemOverlay,
-    },
-    {
-        ...TOOL_META[11], Panel: SummerPanel, Overlay: SummerOverlay,
-    },
-    {
-        ...TOOL_META[12], Panel: DonatePanel, Overlay: DonateOverlay,
-    },
-    {
-        ...TOOL_META[13], Panel: MarketPanel, Overlay: MarketOverlay,
-    },
-];
+const TOOL_PARTS: Record<string, Pick<MapTool, "Panel" | "Overlay">> = {
+    "data-hunter": { Panel: DataHunterPanel, Overlay: DataHunterOverlay },
+    "gap-predictor": { Panel: GapPredictorPanel, Overlay: GapPredictorOverlay },
+    "resource-optimizer": { Panel: ResourceOptimizerPanel, Overlay: ResourceOptimizerOverlay },
+    "geo-vision": { Panel: GeoVisionPanel, Overlay: GeoVisionOverlay },
+    "survey-planner": { Panel: SurveyPlannerPanel, Overlay: SurveyPlannerOverlay },
+    "climate": { Panel: ClimateGuardianPanel, Overlay: ClimateGuardianOverlay },
+    "wifi": { Panel: WifiPanel, Overlay: WifiOverlay },
+    "green": { Panel: GreenPanel, Overlay: GreenOverlay },
+    "learning-space": { Panel: LearningSpacePanel, Overlay: LearningSpaceOverlay },
+    "stem": { Panel: StemPanel, Overlay: StemOverlay },
+    "summer": { Panel: SummerPanel, Overlay: SummerOverlay },
+    "donate": { Panel: DonatePanel, Overlay: DonateOverlay },
+    "market": { Panel: MarketPanel, Overlay: MarketOverlay },
+};
+export const MAP_TOOLS: MapTool[] = TOOL_META.map((meta) => ({ ...meta, ...TOOL_PARTS[meta.id] }));
 export const MAP_TOOL_BY_ID: Record<string, MapTool> = Object.fromEntries(MAP_TOOLS.map((t) => [t.id, t]));
 export function getMapTool(id: string | null): MapTool | undefined {
     if (!id)

@@ -2479,3 +2479,50 @@ trang hub và truy cập qua `HubTabBar`:
 - Không đụng backend/BFF/API. Kiểm chứng local: `check_nav.py` OK; 0 href trùng,
   0 label trùng, 0 mục `href` chéo hub; cân bằng ngoặc + import thừa các file sửa
   đều sạch. `node_modules` không có nên không chạy `tsc`; runtime truth = host.
+
+## 29. Bỏ sidebar trái + điều hướng bằng QuickDock (2026-11-25)
+
+Sidebar trái bị xoá hẳn; điều hướng toàn cục do `QuickDock` đảm nhiệm, điều
+hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
+
+- **Xoá `components/Sidebar.tsx` + `src/lib/layout-constants.ts`.** `AppLayout`
+  (`components/AppLayout.tsx`) không còn `<Sidebar/>`, không còn
+  `lg:ml-[var(--sidebar-width)]`, không còn header mobile; chỉ còn
+  `<div id="app-content">` + `<QuickDock/>` + `<DashboardDrawer/>`.
+- **`globals.css`:** bỏ `--sidebar-width`/`--sidebar-width-collapsed` và block
+  `@media (max-width:1023px){ #app-content .min-h-screen … }`. Các trang đổi
+  `calc(100dvh-3.5rem)` → `h-dvh`/`min-h-dvh` (volunteer, career, ai-chat,
+  language-bridge, map, offline-tutor); `RoutingPanel` `top-[56px] lg:top-4` →
+  `top-4`.
+- **`QuickDock` (`components/ui/magic/QuickDock.tsx`) là nav chính:** theme ·
+  7 hub (icon + `group.hubHref`) · `/features` · avatar · cuộn lên đầu · thu gọn.
+  Hub đang mở suy ra bằng `groupForPath(pathname)`. Mobile mặc định thu gọn
+  (≤640px) và Dock cuộn ngang khi mở. Trên `/map` nút thu gọn đặt
+  `right-[4.75rem]` để không chồng rail `MapMenu`.
+- **Avatar → `DashboardDrawer` (`components/dashboard/DashboardDrawer.tsx`):**
+  drawer trượt phải `w-[min(480px,100vw)]`, không lớp phủ tối, đóng bằng nút/Esc
+  hoặc click nền trong suốt; nội dung dùng chung
+  `components/dashboard/DashboardContent.tsx` (`variant="page" | "drawer"`);
+  `app/dashboard/page.tsx` chỉ render `DashboardContent variant="page"`.
+- **Catalog (`src/lib/feature-catalog.ts`) là nguồn duy nhất:** bỏ cờ `sidebar`,
+  bỏ `SIDEBAR_FEATURES`/`SIDEBAR_GROUPS`; `FeatureGroup` thêm `hubHref`
+  (personal `/dashboard`, map `/map`, learn `/scholarships`, career `/career`,
+  community `/community`, ai `/ai-chat`, contribute `/impact-match`);
+  `featuresForGroup` xếp hub lên đầu theo `hubHref`; thêm `groupForPath(pathname)`
+  cho dock. `HubLanding.tsx` và trang `/learn`, `/ai`, `/contribute` bị xoá;
+  `next.config.js` redirect `/learn`→`/scholarships`, `/ai`→`/ai-chat`,
+  `/contribute`→`/impact-match`; `app/sitemap.ts` cập nhật.
+- **Tool bản đồ:** bỏ `ai-agent` (`AiAgentTool.tsx`, entry registry + catalog,
+  `next.config.js` `/ai-agent`→`/map`) → còn **13** tool; giữ cả
+  `data-hunter`/`gap-predictor`. Viết lại `ResourceOptimizerTool.tsx` (MCLP: input
+  ngân sách/bán kính phủ/bán kính vùng, gửi `coverage_radius_km`/
+  `region_radius_km`/`center_*`, so sánh kế hoạch A/B/C = 40/70/100% ngân sách,
+  bỏ khối trọng số sai, sửa typo "giáo dụng"/"tối đa hoá đi coverage").
+  `GeoVisionTool` thêm nhãn "Chưa có kết quả phát hiện … đang chờ provider" khi
+  rỗng. `MapMenu` panel co dãn bằng `useResizable({handleEdge:"left"})`
+  (min 300 / max 640), mặc định 380px.
+- Không đụng backend/BFF/API surface (§20). Kiểm chứng local (`node_modules`
+  không có nên không `tsc`): `check_nav.py` (7 hub, 42 tính năng, 13 tool, mỗi
+  hubHref có đúng 1 entry, landing cũ đã xoá) OK; `balance.py`/`unused.py`/
+  `resolve_imports.py` sạch cho mọi file sửa; `trace_map_graph.py` 0 leak
+  leaflet. Runtime truth = host sau khi người dùng deploy.

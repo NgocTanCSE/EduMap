@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useResizable } from "@/src/hooks/useResizable";
 
 export interface MapMenuItem {
     id: string;
@@ -21,6 +22,12 @@ interface MapMenuProps {
 }
 
 export default function MapMenu({ open, onOpenChange, title, groups, children }: MapMenuProps) {
+    const { size: panelSize, onResizeMouseDown: onPanelResizeMouseDown } = useResizable({
+        initialSize: { width: 380, height: 600 },
+        minWidth: 300,
+        maxWidth: 640,
+        handleEdge: "left",
+    });
     return (<div className="pointer-events-none absolute inset-y-0 right-0 z-[50] flex items-stretch">
       <div className="pointer-events-auto flex h-full w-14 shrink-0 flex-col items-center gap-1 py-3">
         {groups.map((group, groupIndex) => (<React.Fragment key={groupIndex}>
@@ -42,9 +49,10 @@ export default function MapMenu({ open, onOpenChange, title, groups, children }:
         </button>
       </div>
 
-      <section className={`pointer-events-auto flex h-full flex-col overflow-hidden border-l bg-card/95 backdrop-blur-md transition-all duration-200 ${open
-            ? "w-[380px] max-w-[calc(100vw_-_3.5rem)] border-border/80 opacity-100 shadow-pop"
-            : "w-0 border-transparent opacity-0"}`}>
+      <section style={{ width: open ? panelSize.width : 0 }} className={`pointer-events-auto relative flex h-full flex-col overflow-hidden border-l bg-card/95 backdrop-blur-md transition-opacity duration-200 ${open
+            ? "max-w-[calc(100vw_-_3.5rem)] border-border/80 opacity-100 shadow-pop"
+            : "border-transparent opacity-0"}`}>
+        {open && (<div role="separator" aria-orientation="vertical" aria-label="Kéo để đổi độ rộng bảng" title="Kéo để đổi độ rộng bảng" onMouseDown={onPanelResizeMouseDown} className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize select-none transition-colors hover:bg-primary/40"/>)}
         <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4">
           <h2 className="truncate text-sm font-semibold text-foreground">{title}</h2>
           <button type="button" onClick={() => onOpenChange(false)} aria-label="Đóng bảng" className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 active:scale-95">

@@ -77,7 +77,7 @@ export default function VolunteerPage() {
         }
     };
     if (!authService.isLoggedIn()) {
-        return (<div className="flex min-h-[calc(100dvh-3.5rem)] flex-col items-center justify-center gap-6 p-8 text-center">
+        return (<div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-8 text-center">
               <HeartHandshake className="w-16 h-16 text-primary mx-auto"/>
               <h1 className="h1-page">Nhật ký Tình nguyện</h1>
               <p className="text-muted-foreground/60">Vui lòng đăng nhập để xem và ghi nhận giờ tình nguyện của bạn.</p>
@@ -87,7 +87,7 @@ export default function VolunteerPage() {
           </div>);
     }
     const progress = Math.min(100, (totalHours / 50) * 100);
-    return (<div className="relative min-h-[calc(100dvh-3.5rem)] w-full lg:min-h-screen">
+    return (<div className="relative min-h-dvh w-full">
       <HubTabBar hubId="community"/>
       {showForm && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">

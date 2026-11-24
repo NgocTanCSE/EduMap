@@ -210,7 +210,7 @@ export default function OfflineTutorPage() {
     </div>);
     const isModelReady = modelStatus?.model_loaded === true;
     const isModelFailed = modelStatus?.model_failed === true;
-    return (<div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-dvh">
+    return (<div className="flex h-dvh flex-col bg-background">
       <HubTabBar hubId="ai"/>
       <div className="border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10">

@@ -7,11 +7,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: number;
     }> = [
         { path: '/map', changeFrequency: 'daily', priority: 0.9 },
-        { path: '/learn', changeFrequency: 'weekly', priority: 0.8 },
+        { path: '/scholarships', changeFrequency: 'weekly', priority: 0.8 },
         { path: '/career', changeFrequency: 'weekly', priority: 0.8 },
         { path: '/community', changeFrequency: 'always', priority: 0.8 },
-        { path: '/ai', changeFrequency: 'monthly', priority: 0.7 },
-        { path: '/contribute', changeFrequency: 'weekly', priority: 0.7 },
+        { path: '/ai-chat', changeFrequency: 'monthly', priority: 0.7 },
+        { path: '/impact-match', changeFrequency: 'weekly', priority: 0.7 },
         { path: '/library', changeFrequency: 'daily', priority: 0.8 },
         { path: '/scholarships', changeFrequency: 'daily', priority: 0.8 },
         { path: '/opportunities', changeFrequency: 'daily', priority: 0.9 },

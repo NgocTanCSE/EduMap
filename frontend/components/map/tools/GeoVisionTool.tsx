@@ -1,11 +1,11 @@
 "use client";
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { BrainCircuit, RefreshCw, AlertCircle, Info, Target, MapPin, Camera, Layers, ExternalLink, CheckCircle2, } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { RefreshCw, AlertCircle, Info, Target, Camera, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
-import { MapContainer, TileLayer, GeoJSON, Marker, Popup, Rectangle, useMap, } from "react-leaflet";
+import { Marker, Popup, Rectangle, useMap, } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 type TileSource = "esri" | "bing";
@@ -193,6 +193,19 @@ export function GeoVisionPanel({ viewport, result, onResult, loading, setLoading
                 {d.nearest_poi && (<div className="text-muted-foreground/60 mt-0.5">Gần nhất: {d.nearest_poi}</div>)}
               </div>);
             })}
+        </div>)}
+
+      
+      {result && detections.length === 0 && (<div className="p-3 rounded-lg border border-border bg-muted/20 text-xs text-muted-foreground space-y-1">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
+            <Info className="w-3.5 h-3.5"/>
+            <span>Chưa có kết quả phát hiện</span>
+          </div>
+          <p className="leading-relaxed">
+            {result.degraded
+                ? "Hệ thống chưa có provider nhận dạng ảnh vệ tinh nên chưa thể dò cơ sở mới. Kết quả sẽ hiện khi provider được cấu hình."
+                : "Không thấy cơ sở giáo dục mới trong khung ảnh này. Hãy phóng to tới khu vực trường học rồi chạy lại."}
+          </p>
         </div>)}
 
       

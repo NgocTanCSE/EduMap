@@ -230,7 +230,7 @@ export default function LanguageBridgePage() {
     }, [ttsResult, ttsLang]);
     if (!user)
         return null;
-    return (<div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background text-foreground px-3 sm:px-6 lg:px-8 xl:px-10 py-5 sm:py-8 space-y-6">
+    return (<div className="min-h-dvh w-full bg-background text-foreground px-3 sm:px-6 lg:px-8 xl:px-10 py-5 sm:py-8 space-y-6">
       <HubTabBar hubId="ai"/>
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden"/>
 

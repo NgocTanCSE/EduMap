@@ -9,11 +9,6 @@
 
   :root {
     
-    --sidebar-width: 252px;
-    --sidebar-width-collapsed: 56px;
-
-    
-
     --background: 40 25% 93%;            
     --foreground: 38 17% 9%;             
     --card: 43 100% 98.6%;               
@@ -307,12 +302,6 @@ html {
 }
 .border-border {
   border-color: hsl(var(--border));
-}
-
-@media (max-width: 1023px) {
-  #app-content .min-h-screen {
-    min-height: calc(100dvh - 3.5rem);
-  }
 }
 
 @layer utilities {

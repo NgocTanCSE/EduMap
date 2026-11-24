@@ -1,18 +1,29 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map as MapIcon, MessageSquareText, LayoutGrid, ArrowUp, SlidersHorizontal, ChevronDown, BookOpen, User, } from "lucide-react";
+import { Layers, ArrowUp, SlidersHorizontal, ChevronDown, User, LogOut } from "lucide-react";
 import { Dock, DockIcon } from "./Dock";
 import AnimatedThemeToggler from "./AnimatedThemeToggler";
 import { cn } from "@/src/lib/utils";
+import { FEATURE_GROUPS, groupForPath } from "@/src/lib/feature-catalog";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 export interface QuickDockProps {
     className?: string;
+    onOpenDashboard?: () => void;
 }
-export function QuickDock({ className }: QuickDockProps) {
-    const pathname = usePathname();
-    const [collapsed, setCollapsed] = useState(pathname?.startsWith("/map") ?? false);
+export function QuickDock({ className, onOpenDashboard }: QuickDockProps) {
+    const pathname = usePathname() || "";
+    const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
+    const onMap = pathname.startsWith("/map");
+    const [collapsed, setCollapsed] = useState(onMap);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches) {
+            setCollapsed(true);
+        }
+    }, []);
     useEffect(() => {
         const handleScroll = () => {
             setShowScrollTop(window.scrollY > 300);
@@ -20,61 +31,45 @@ export function QuickDock({ className }: QuickDockProps) {
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+    const activeGroup = useMemo(() => groupForPath(pathname), [pathname]);
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
     if (collapsed) {
-        return (<div className={cn("fixed bottom-5 right-5 z-40 transition-all duration-300", className)}>
-        <button onClick={() => setCollapsed(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-border/80 bg-card/90 text-primary shadow-pop backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:bg-card" title="Mở thanh tùy chỉnh nhanh (Dock)" aria-label="Mở thanh tùy chỉnh nhanh">
+        return (<div className={cn("fixed bottom-5 z-40 transition-all duration-300", onMap ? "right-[4.75rem]" : "right-5", className)}>
+        <button onClick={() => setCollapsed(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-border/80 bg-card/90 text-primary shadow-pop backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:bg-card" title="Mở thanh điều hướng" aria-label="Mở thanh điều hướng">
           <SlidersHorizontal className="h-5 w-5"/>
         </button>
       </div>);
     }
-    return (<div className={cn("fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 transition-all duration-300", className)}>
-      <Dock className="shadow-pop border border-border/80 bg-card/90 backdrop-blur-xl">
+    const avatar = user?.avatar_url || avatarFallback(user?.fullName);
+    return (<div className={cn("fixed bottom-5 left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-2 transition-all duration-300", className)}>
+      <Dock className="max-w-full overflow-x-auto scrollbar-hide shadow-pop border border-border/80 bg-card/90 backdrop-blur-xl">
         <DockIcon>
           <AnimatedThemeToggler size="sm" className="border-0 bg-transparent shadow-none hover:bg-secondary/80"/>
         </DockIcon>
 
-        <div className="h-6 w-px bg-border/60 mx-0.5"/>
+        <div className="mx-0.5 h-6 w-px shrink-0 bg-border/60"/>
+
+        {FEATURE_GROUPS.map((group) => {
+            const Icon = group.icon;
+            const active = activeGroup?.id === group.id;
+            return (<DockIcon key={group.id}>
+            <Link href={group.hubHref} className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title={group.label}>
+              <Icon className="h-5 w-5"/>
+            </Link>
+          </DockIcon>);
+        })}
+
+        <div className="mx-0.5 h-6 w-px shrink-0 bg-border/60"/>
 
         <DockIcon>
-          <Link href="/ai-chat" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/ai-chat"
+          <Link href="/features" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/features"
             ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Trò chuyện AI (EduMap Assistant)">
-            <MessageSquareText className="h-5 w-5"/>
-          </Link>
-        </DockIcon>
-
-        <DockIcon>
-          <Link href="/map" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/map"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Bản đồ giáo dục Biên Hòa (/map)">
-            <MapIcon className="h-5 w-5"/>
-          </Link>
-        </DockIcon>
-
-        <DockIcon>
-          <Link href="/dashboard" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/dashboard"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Bảng điều khiển cá nhân (/dashboard)">
-            <LayoutGrid className="h-5 w-5"/>
-          </Link>
-        </DockIcon>
-
-        <DockIcon>
-          <Link href="/library" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/library"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Thư viện học liệu (/library)">
-            <BookOpen className="h-5 w-5"/>
-          </Link>
-        </DockIcon>
-
-        <DockIcon>
-          <Link href="/profile" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/profile"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Hồ sơ cá nhân (/profile)">
-            <User className="h-5 w-5"/>
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Tất cả tính năng (/features)">
+            <Layers className="h-5 w-5"/>
           </Link>
         </DockIcon>
 
@@ -84,10 +79,30 @@ export function QuickDock({ className }: QuickDockProps) {
             </button>
           </DockIcon>)}
 
-        <div className="h-6 w-px bg-border/60 mx-0.5"/>
+        {authLoading ? (<DockIcon>
+            <span className="h-6 w-6 rounded-full bg-muted/50 animate-pulse"/>
+          </DockIcon>) : isLoggedIn && user ? (<DockIcon>
+            <button type="button" onClick={() => onOpenDashboard?.()} className={cn("flex h-full w-full items-center justify-center overflow-hidden rounded-full border transition-colors", pathname === "/dashboard"
+                ? "border-primary"
+                : "border-border hover:border-primary/50")} title={`Bảng điều khiển: ${user.fullName || user.email}`} aria-label="Mở bảng điều khiển">
+              <img src={avatar} onError={onImageError(avatarFallback(user.fullName))} alt={user.fullName || "user"} className="h-full w-full object-cover"/>
+            </button>
+          </DockIcon>) : (<DockIcon>
+            <Link href="/auth/login" className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" title="Đăng nhập">
+              <User className="h-5 w-5"/>
+            </Link>
+          </DockIcon>)}
+
+        {isLoggedIn && (<DockIcon>
+            <button type="button" onClick={() => logout()} className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive" title="Đăng xuất">
+              <LogOut className="h-4 w-4"/>
+            </button>
+          </DockIcon>)}
+
+        <div className="mx-0.5 h-6 w-px shrink-0 bg-border/60"/>
 
         <DockIcon>
-          <button onClick={() => setCollapsed(true)} className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" title="Thu gọn Dock">
+          <button onClick={() => setCollapsed(true)} className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" title="Thu gọn thanh điều hướng">
             <ChevronDown className="h-4 w-4"/>
           </button>
         </DockIcon>

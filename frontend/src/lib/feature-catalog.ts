@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, Camera, ClipboardList, CloudOff, CloudRain, Compass, Flame, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, ThermometerSun, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
+import { Atom, Banknote, BarChart3, BookMarked, BookOpen, BrainCircuit, Briefcase, Building2, Calendar, Camera, ClipboardList, CloudOff, CloudRain, Compass, Flame, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
 export type FeatureGroupId = "personal" | "map" | "learn" | "career" | "community" | "ai" | "contribute";
 export type IconComponent = ComponentType<{
     className?: string;
@@ -11,7 +11,6 @@ export type Feature = {
     icon: IconComponent;
     description: string;
     group: FeatureGroupId;
-    sidebar?: boolean;
     keywords?: string[];
 };
 export type FeatureGroup = {
@@ -19,6 +18,7 @@ export type FeatureGroup = {
     label: string;
     description: string;
     icon: IconComponent;
+    hubHref: string;
 };
 export const FEATURE_GROUPS: FeatureGroup[] = [
     {
@@ -26,42 +26,49 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         label: "Bảng điều khiển",
         description: "Tiến độ học tập, chứng chỉ và hoạt động cá nhân của bạn.",
         icon: LayoutDashboard,
+        hubHref: "/dashboard",
     },
     {
         id: "map",
         label: "Bản đồ",
-        description: "Bản đồ giáo dục tương tác: trường học, thư viện, Wifi và 14 công cụ.",
+        description: "Bản đồ giáo dục tương tác: trường học, thư viện, Wifi và các công cụ phân tích.",
         icon: Map,
+        hubHref: "/map",
     },
     {
         id: "learn",
         label: "Học tập",
         description: "Học bổng, du học và học liệu.",
         icon: BookOpen,
+        hubHref: "/scholarships",
     },
     {
         id: "career",
         label: "Hướng nghiệp",
         description: "Khám phá nghề nghiệp, việc làm, thực tập và cơ hội.",
         icon: Compass,
+        hubHref: "/career",
     },
     {
         id: "community",
         label: "Cộng đồng",
         description: "Cố vấn, sự kiện, cuộc thi và hoạt động vì cộng đồng.",
         icon: Users,
+        hubHref: "/community",
     },
     {
         id: "ai",
         label: "Trợ lý AI",
         description: "Hỏi đáp có trích nguồn, dịch và trợ lý ngoại tuyến.",
         icon: Sparkles,
+        hubHref: "/ai-chat",
     },
     {
         id: "contribute",
         label: "Đóng góp",
         description: "Ghép nhu cầu, nguồn lực và đo lường tác động xã hội.",
         icon: HandHeart,
+        hubHref: "/impact-match",
     },
 ];
 export const FEATURES: Feature[] = [
@@ -72,7 +79,6 @@ export const FEATURES: Feature[] = [
         icon: LayoutDashboard,
         description: "Tiến độ học tập, chứng chỉ và hoạt động cá nhân của bạn.",
         group: "personal",
-        sidebar: true,
         keywords: ["dashboard", "hồ sơ", "tiến độ", "cá nhân"],
     },
     {
@@ -82,7 +88,6 @@ export const FEATURES: Feature[] = [
         icon: Layers,
         description: "Danh mục đủ mọi tính năng, gom theo nhóm và tìm kiếm được.",
         group: "personal",
-        sidebar: false,
         keywords: ["danh mục", "tính năng", "features", "hub"],
     },
     {
@@ -90,10 +95,9 @@ export const FEATURES: Feature[] = [
         label: "Bản đồ",
         href: "/map",
         icon: Map,
-        description: "Bản đồ giáo dục tương tác kèm 14 công cụ phân tích và tiện ích tại chỗ.",
+        description: "Bản đồ giáo dục tương tác kèm công cụ phân tích và tiện ích tại chỗ.",
         group: "map",
-        sidebar: true,
-        keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "ai-agent", "wifi", "green"],
+        keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "wifi", "green"],
     },
     {
         id: "green",
@@ -102,7 +106,6 @@ export const FEATURES: Feature[] = [
         icon: Leaf,
         description: "Hoạt động sống xanh, chứng kiến và minh chứng tại TP. Hồ Chí Minh.",
         group: "map",
-        sidebar: false,
         keywords: ["xanh", "môi trường", "green", "carbon"],
     },
     {
@@ -112,7 +115,6 @@ export const FEATURES: Feature[] = [
         icon: Sun,
         description: "Chiến dịch hè, hoạt động tình nguyện theo mùa.",
         group: "map",
-        sidebar: false,
         keywords: ["mùa hè", "summer", "chiến dịch"],
     },
     {
@@ -122,7 +124,6 @@ export const FEATURES: Feature[] = [
         icon: Wifi,
         description: "Danh sách trạm Wifi giáo dục và tốc độ kết nối thực tế.",
         group: "map",
-        sidebar: false,
         keywords: ["wifi", "internet", "tốc độ"],
     },
     {
@@ -132,7 +133,6 @@ export const FEATURES: Feature[] = [
         icon: Atom,
         description: "Đặt phòng lab, thiết bị STEM và xem lịch còn trống.",
         group: "map",
-        sidebar: false,
         keywords: ["stem", "lab", "thiết bị", "phòng thí nghiệm"],
     },
     {
@@ -142,18 +142,7 @@ export const FEATURES: Feature[] = [
         icon: School,
         description: "So sánh phòng tự học, thư viện và không gian yên tĩnh.",
         group: "map",
-        sidebar: false,
         keywords: ["không gian", "tự học", "study space"],
-    },
-    {
-        id: "ai-agent",
-        label: "AI Agent bản đồ",
-        href: "/map?tool=ai-agent",
-        icon: Bot,
-        description: "Đặt câu hỏi dạng GIS, xem từng bước AI gọi công cụ.",
-        group: "map",
-        sidebar: false,
-        keywords: ["agent", "gis", "công cụ", "tool"],
     },
     {
         id: "donate",
@@ -162,7 +151,6 @@ export const FEATURES: Feature[] = [
         icon: Wallet,
         description: "Chiến dịch gây quỹ đã kiểm chứng cho học sinh khó khăn.",
         group: "map",
-        sidebar: false,
         keywords: ["quyên góp", "donate", "gây quỹ"],
     },
     {
@@ -172,7 +160,6 @@ export const FEATURES: Feature[] = [
         icon: Store,
         description: "Mua bán, trao đổi sách và thiết bị học tập.",
         group: "map",
-        sidebar: false,
         keywords: ["chợ", "marketplace", "sách", "thiết bị"],
     },
     {
@@ -182,7 +169,6 @@ export const FEATURES: Feature[] = [
         icon: Target,
         description: "Tìm khoảng trống giáo dục bằng phân tích lưới ô dữ liệu.",
         group: "map",
-        sidebar: false,
         keywords: ["data hunter", "khoảng trống", "lưới ô", "gap"],
     },
     {
@@ -192,18 +178,16 @@ export const FEATURES: Feature[] = [
         icon: Flame,
         description: "Dự báo vùng thiếu giáo dục trong tương lai bằng mô hình AI.",
         group: "map",
-        sidebar: false,
         keywords: ["dự báo", "khoảng trống", "gap", "predict"],
     },
     {
         id: "resource-optimizer",
         label: "Tối ưu nguồn lực",
         href: "/map?tool=resource-optimizer",
-        icon: ThermometerSun,
-        description: "Đề xuất phân bổ nguồn lực để khai thác hiệu quả các cơ sở giáo dục.",
+        icon: Banknote,
+        description: "Đề xuất phân bổ cơ sở giáo dục để phủ nhiều người học nhất trong ngân sách.",
         group: "map",
-        sidebar: false,
-        keywords: ["tối ưu", "nguồn lực", "đầu tư"],
+        keywords: ["tối ưu", "nguồn lực", "đầu tư", "mclp"],
     },
     {
         id: "geo-vision",
@@ -212,7 +196,6 @@ export const FEATURES: Feature[] = [
         icon: Camera,
         description: "Phát hiện cơ sở giáo dục mới từ ảnh vệ tinh qua AI.",
         group: "map",
-        sidebar: false,
         keywords: ["vệ tinh", "ảnh", "geo", "vision"],
     },
     {
@@ -222,7 +205,6 @@ export const FEATURES: Feature[] = [
         icon: Target,
         description: "Lên lộ trình khảo sát hiệu quả nhất cho đội ngũ thực địa.",
         group: "map",
-        sidebar: false,
         keywords: ["khảo sát", "thực địa", "survey"],
     },
     {
@@ -232,18 +214,7 @@ export const FEATURES: Feature[] = [
         icon: CloudRain,
         description: "Đánh giá rủi ro khí hậu và đề xuất tuyến đường an toàn.",
         group: "map",
-        sidebar: false,
         keywords: ["khí hậu", "lũ lụt", "an toàn", "climate"],
-    },
-    {
-        id: "learn",
-        label: "Học tập",
-        href: "/learn",
-        icon: BookOpen,
-        description: "Học bổng, du học và học liệu trong một nơi.",
-        group: "learn",
-        sidebar: true,
-        keywords: ["học tập", "learn", "học bổng", "du học", "thư viện"],
     },
     {
         id: "scholarships",
@@ -252,7 +223,6 @@ export const FEATURES: Feature[] = [
         icon: GraduationCap,
         description: "Học bổng trong nước và quốc tế kèm nguồn chính thức.",
         group: "learn",
-        sidebar: false,
         keywords: ["học bổng", "scholarship", "du học"],
     },
     {
@@ -262,7 +232,6 @@ export const FEATURES: Feature[] = [
         icon: Plane,
         description: "Chương trình trao đổi, du học và học kỳ quốc tế.",
         group: "learn",
-        sidebar: false,
         keywords: ["du học", "trao đổi", "international"],
     },
     {
@@ -272,7 +241,6 @@ export const FEATURES: Feature[] = [
         icon: BookMarked,
         description: "Tìm học liệu, sách, video và tài liệu mở.",
         group: "learn",
-        sidebar: false,
         keywords: ["thư viện", "sách", "học liệu", "library"],
     },
     {
@@ -282,7 +250,6 @@ export const FEATURES: Feature[] = [
         icon: Compass,
         description: "Khám phá ngành nghề, kỹ năng, việc làm, thực tập và cơ hội.",
         group: "career",
-        sidebar: true,
         keywords: ["nghề nghiệp", "career", "ngành", "việc làm", "thực tập"],
     },
     {
@@ -292,7 +259,6 @@ export const FEATURES: Feature[] = [
         icon: Briefcase,
         description: "Tin tuyển dụng mới, được thu thập và làm sạch hằng ngày.",
         group: "career",
-        sidebar: false,
         keywords: ["việc làm", "tuyển dụng", "job"],
     },
     {
@@ -302,7 +268,6 @@ export const FEATURES: Feature[] = [
         icon: Route,
         description: "Lộ trình từng bước từ sinh viên tới vị trí mong muốn.",
         group: "career",
-        sidebar: false,
         keywords: ["lộ trình", "roadmap", "kỹ năng"],
     },
     {
@@ -312,7 +277,6 @@ export const FEATURES: Feature[] = [
         icon: TrendingUp,
         description: "Xu hướng nhu cầu nhân lực theo dữ liệu thị trường.",
         group: "career",
-        sidebar: false,
         keywords: ["dự báo", "predict", "xu hướng"],
     },
     {
@@ -322,7 +286,6 @@ export const FEATURES: Feature[] = [
         icon: Building2,
         description: "Vị trí thực tập tại doanh nghiệp và tổ chức giáo dục.",
         group: "career",
-        sidebar: false,
         keywords: ["thực tập", "internship"],
     },
     {
@@ -332,7 +295,6 @@ export const FEATURES: Feature[] = [
         icon: Rocket,
         description: "Cuộc thi, chương trình tài trợ và hoạt động ngoại khoá.",
         group: "career",
-        sidebar: false,
         keywords: ["cơ hội", "cuộc thi", "opportunity"],
     },
     {
@@ -342,7 +304,6 @@ export const FEATURES: Feature[] = [
         icon: Radar,
         description: "AI quét và xếp hạng cơ hội phù hợp với hồ sơ của bạn.",
         group: "career",
-        sidebar: false,
         keywords: ["radar", "gợi ý", "phù hợp"],
     },
     {
@@ -352,7 +313,6 @@ export const FEATURES: Feature[] = [
         icon: BarChart3,
         description: "Thống kê kỹ năng, ngành nghề và nhu cầu tuyển dụng.",
         group: "career",
-        sidebar: false,
         keywords: ["phân tích", "thống kê", "analytics", "xu hướng"],
     },
     {
@@ -362,7 +322,6 @@ export const FEATURES: Feature[] = [
         icon: MessagesSquare,
         description: "Cố vấn, sự kiện, cuộc thi và hoạt động vì cộng đồng.",
         group: "community",
-        sidebar: true,
         keywords: ["cộng đồng", "chia sẻ", "hỏi đáp"],
     },
     {
@@ -372,7 +331,6 @@ export const FEATURES: Feature[] = [
         icon: Users,
         description: "Kết nối với cố vấn theo ngành học và mục tiêu nghề nghiệp.",
         group: "community",
-        sidebar: false,
         keywords: ["cố vấn", "mentor", "hướng dẫn"],
     },
     {
@@ -382,7 +340,6 @@ export const FEATURES: Feature[] = [
         icon: Calendar,
         description: "Hội thảo, ngày hội tuyển sinh và workshop kỹ năng.",
         group: "community",
-        sidebar: false,
         keywords: ["sự kiện", "event", "workshop"],
     },
     {
@@ -392,7 +349,6 @@ export const FEATURES: Feature[] = [
         icon: Trophy,
         description: "Cuộc thi lập trình, thể lệ và đội thi đang mở.",
         group: "community",
-        sidebar: false,
         keywords: ["hackathon", "cuộc thi", "lập trình"],
     },
     {
@@ -402,7 +358,6 @@ export const FEATURES: Feature[] = [
         icon: Medal,
         description: "Điểm đóng góp và thứ hạng của thành viên tích cực.",
         group: "community",
-        sidebar: false,
         keywords: ["xếp hạng", "leaderboard", "điểm"],
     },
     {
@@ -412,7 +367,6 @@ export const FEATURES: Feature[] = [
         icon: Network,
         description: "Cầu nối giữa học sinh THPT và trường đại học, doanh nghiệp.",
         group: "community",
-        sidebar: false,
         keywords: ["thpt", "kết nối", "trường"],
     },
     {
@@ -422,7 +376,6 @@ export const FEATURES: Feature[] = [
         icon: HeartHandshake,
         description: "Chiến dịch tình nguyện và hoạt động vì cộng đồng.",
         group: "community",
-        sidebar: false,
         keywords: ["tình nguyện", "volunteer", "cộng đồng"],
     },
     {
@@ -432,18 +385,7 @@ export const FEATURES: Feature[] = [
         icon: ClipboardList,
         description: "Trả lời khảo sát ngắn để nhận gợi ý phù hợp hơn.",
         group: "community",
-        sidebar: false,
         keywords: ["khảo sát", "survey", "biểu mẫu"],
-    },
-    {
-        id: "ai",
-        label: "Trợ lý AI",
-        href: "/ai",
-        icon: Sparkles,
-        description: "Hỏi đáp có trích nguồn, dịch và trợ lý ngoại tuyến.",
-        group: "ai",
-        sidebar: true,
-        keywords: ["ai", "trợ lý", "chat", "dịch", "offline", "knowledge graph"],
     },
     {
         id: "ai-chat",
@@ -452,7 +394,6 @@ export const FEATURES: Feature[] = [
         icon: BrainCircuit,
         description: "Hỏi đáp học tập, học bổng và nghề nghiệp có trích nguồn.",
         group: "ai",
-        sidebar: false,
         keywords: ["chat", "rag", "trợ lý"],
     },
     {
@@ -462,7 +403,6 @@ export const FEATURES: Feature[] = [
         icon: Languages,
         description: "Đơn giản hoá văn bản, dịch thuật và đọc thành tiếng.",
         group: "ai",
-        sidebar: false,
         keywords: ["dịch", "translate", "tts", "đơn giản hoá"],
     },
     {
@@ -472,7 +412,6 @@ export const FEATURES: Feature[] = [
         icon: CloudOff,
         description: "Học tiếp khi mất mạng nhờ mô hình chạy ngay trên máy.",
         group: "ai",
-        sidebar: false,
         keywords: ["offline", "ngoại tuyến", "tutor"],
     },
     {
@@ -482,18 +421,7 @@ export const FEATURES: Feature[] = [
         icon: Network,
         description: "Khám phá quan hệ giữa trường, học bổng, nghề và kỹ năng.",
         group: "ai",
-        sidebar: false,
         keywords: ["knowledge graph", "quan hệ", "liên kết"],
-    },
-    {
-        id: "contribute",
-        label: "Đóng góp",
-        href: "/contribute",
-        icon: HandHeart,
-        description: "Ghép nhu cầu, nguồn lực và đo lường tác động xã hội.",
-        group: "contribute",
-        sidebar: true,
-        keywords: ["đóng góp", "tài trợ", "tác động", "nguồn lực"],
     },
     {
         id: "impact-match",
@@ -502,7 +430,6 @@ export const FEATURES: Feature[] = [
         icon: Target,
         description: "Ghép nhu cầu của tổ chức với nhà tài trợ phù hợp.",
         group: "contribute",
-        sidebar: false,
         keywords: ["impact", "tài trợ", "ghép"],
     },
     {
@@ -512,7 +439,6 @@ export const FEATURES: Feature[] = [
         icon: Package,
         description: "Ghép sách, thiết bị và giờ tình nguyện đang dư với nhu cầu.",
         group: "contribute",
-        sidebar: false,
         keywords: ["trao đổi", "nguồn lực", "exchange"],
     },
     {
@@ -522,15 +448,9 @@ export const FEATURES: Feature[] = [
         icon: MapPinned,
         description: "Đo thay đổi khả năng tiếp cận trước và sau khi triển khai.",
         group: "contribute",
-        sidebar: false,
         keywords: ["tác động", "impact", "đo lường"],
     },
 ];
-export const SIDEBAR_FEATURES = FEATURES.filter((feature) => feature.sidebar);
-export const SIDEBAR_GROUPS = FEATURE_GROUPS.map((group) => ({
-    ...group,
-    items: SIDEBAR_FEATURES.filter((feature) => feature.group === group.id),
-})).filter((group) => group.items.length > 0);
 export function normalizeSearch(value: string): string {
     return (value || "")
         .normalize("NFD")
@@ -549,10 +469,26 @@ export function matchesFeature(feature: Feature, query: string): boolean {
 }
 export function featuresForGroup(group: FeatureGroupId): Feature[] {
     const items = FEATURES.filter((feature) => feature.group === group);
-    const hub = items.filter((feature) => feature.sidebar);
-    const rest = items.filter((feature) => !feature.sidebar);
-    return [...hub, ...rest];
+    const meta = FEATURE_GROUPS.find((g) => g.id === group);
+    if (!meta)
+        return items;
+    const hubPath = meta.hubHref.split("?")[0];
+    const hub = items.find((feature) => feature.href.split("?")[0] === hubPath);
+    if (!hub)
+        return items;
+    return [hub, ...items.filter((feature) => feature.id !== hub.id)];
 }
 export function groupById(id: FeatureGroupId) {
     return FEATURE_GROUPS.find((group) => group.id === id);
+}
+export function groupForPath(pathname: string): FeatureGroup | undefined {
+    const path = (pathname || "").split("?")[0].replace(/\/$/, "") || "/";
+    const match = FEATURES
+        .filter((feature) => feature.id !== "features")
+        .map((feature) => ({ feature, path: feature.href.split("?")[0].replace(/\/$/, "") }))
+        .filter(({ path: p }) => path === p || path.startsWith(p + "/"))
+        .sort((a, b) => b.path.length - a.path.length)[0];
+    if (!match)
+        return undefined;
+    return groupById(match.feature.group);
 }

@@ -157,7 +157,7 @@ function CareerDashboard() {
     </div>);
 }
 export default function CareerPage() {
-    return (<div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
+    return (<div className="min-h-dvh w-full bg-background overflow-hidden flex flex-col">
       <HubTabBar hubId="career" />
 
       <div className="flex-1 overflow-y-auto">

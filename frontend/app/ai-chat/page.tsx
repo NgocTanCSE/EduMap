@@ -263,7 +263,7 @@ export default function AIChatPage() {
     const handleSend = () => {
         sendMessageWithText(input);
     };
-    return (<div className="flex flex-col h-[calc(100dvh-3.5rem)] w-full p-3 sm:p-5 bg-background">
+    return (<div className="flex flex-col h-dvh w-full p-3 sm:p-5 bg-background">
       <HubTabBar hubId="ai"/>
       <div className="flex items-center justify-between mb-3 px-4 py-3 sm:px-5 sm:py-3.5 bg-card border border-border/80 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">

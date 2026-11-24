@@ -559,7 +559,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
     </>);
     if (embedded)
         return <div className="flex h-full flex-col overflow-y-auto scrollbar-hide p-4">{content}</div>;
-    return (<div className="fixed top-[56px] lg:top-4 right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col" style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}>
+    return (<div className="fixed top-4 right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col" style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}>
       <div className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group" onMouseDown={onResizeMouseDown} title="Kéo để thay đổi độ rộng">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors"/>
       </div>
