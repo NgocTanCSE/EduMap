@@ -93,7 +93,7 @@ echo "5. AI chat (không cần đăng nhập)"
 body=$(curl -s --max-time 60 -X POST "$AI/api/ai/chat/" \
     -H "Content-Type: application/json" \
     -d '{"message":"Xin chào, bạn là ai?","history":[]}')
-if echo "$body" | grep -qE '"response"|"answer"|"message"|"degraded"'; then
+if echo "$body" | grep -qE '"reply"|"response"|"answer"|"message"|"degraded"'; then
     ans=$(echo "$body" | head -c 220)
     echo "  [OK]   chat trả lời: $ans"
     pass=$((pass + 1))
