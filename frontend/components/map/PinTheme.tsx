@@ -16,7 +16,7 @@ function getShapeGlyph(shape: PinShape): string {
         default: return TEAR_DROP_SVG;
     }
 }
-const CHECK_SVG = `<svg viewBox="0 0 24 24" fill="%23ffffff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 15 13l-1.41-1.42z"/></svg>`;
+const CHECK_SVG = `<svg viewBox="0 0 24 24" fill="#ffffff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 15 13l-1.41-1.42z"/></svg>`;
 function renderBadgeHtml(badge: PinBadge, sizePx: number): string {
     const badgeR = Math.max(5, sizePx * 0.28);
     const x = sizePx - badgeR;
@@ -24,14 +24,14 @@ function renderBadgeHtml(badge: PinBadge, sizePx: number): string {
     const badgeColor = "#ffffff";
     switch (badge.type) {
         case "verified":
-            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle fill="%2310b981" cx="12" cy="12" r="${badgeR}"/><path fill="${badgeColor}" d="${CHECK_SVG.match(/d="([^"]+)"/)?.[1] || "M9 16.17L4.83 12l-1.42 1.41L9 19 15 13l-1.41-1.42z"}"/></svg>`;
+            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle fill="#10b981" cx="12" cy="12" r="${badgeR}"/><path fill="${badgeColor}" d="${CHECK_SVG.match(/d="([^"]+)"/)?.[1] || "M9 16.17L4.83 12l-1.42 1.41L9 19 15 13l-1.41-1.42z"}"/></svg>`;
         case "new":
-            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle fill="%23ef4444" cx="12" cy="12" r="${badgeR}"/></svg>`;
+            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle fill="#ef4444" cx="12" cy="12" r="${badgeR}"/></svg>`;
         case "progress": {
             const pct = Math.max(0, Math.min(100, badge.value as number || 0));
             const offset = 28.3 * 2;
             const dash = (pct / 100) * offset;
-            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle cx="12" cy="12" r="9" fill="none" stroke="%23ffffff" stroke-width="4" stroke-dasharray="${dash} ${offset}" transform="rotate(-90 12 12)"/></svg>`;
+            return `<svg viewBox="0 0 24 24" class="absolute" style="width:${badgeR * 1.4}px;height:${badgeR * 1.4}px;top:${y - badgeR * 0.7}px;right:${x - badgeR * 0.4}px"><circle cx="12" cy="12" r="9" fill="none" stroke="#ffffff" stroke-width="4" stroke-dasharray="${dash} ${offset}" transform="rotate(-90 12 12)"/></svg>`;
         }
         case "amount":
             return `<div class="absolute" style="top:${y - badgeR * 0.5}px;right:${x - badgeR}px;background:rgba(0,0,0,0.75);color:#fff;border-radius:50%;padding:2px 4px;font-size:${Math.max(6, badgeR * 0.8)}px;line-height:1">${String(badge.value).slice(0, 5)}</div>`;

@@ -639,10 +639,24 @@ export default function MapPage() {
     const fetchFeaturedPins = useCallback(async () => {
         try {
             const res = await fetchWithRetry("/api/map/featured-pins");
+            if (!res.ok)
+                throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const data = unwrapApiResponse<any[]>(json);
             const list = Array.isArray(data) ? data : [];
-            const valid = list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+            const valid = list
+                .filter((p: any) => {
+                    const lat = Number(p.lat);
+                    const lng = Number(p.lng);
+                    return Number.isFinite(lat) && Number.isFinite(lng)
+                        && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+                })
+                .map((p: any) => ({
+                    ...p,
+                    is_verified: p.isVerified ?? p.is_verified ?? false,
+                    target_amount: p.targetAmount ?? p.target_amount ?? undefined,
+                    current_amount: p.currentAmount ?? p.current_amount ?? undefined,
+                }));
             setFeaturedPins(valid);
         }
         catch (error) {

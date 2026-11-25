@@ -38,10 +38,6 @@ function defaultBadge(pin: FeaturedPin): PinBadge | undefined {
         return { type: "verified" };
     switch (cat) {
         case "green":
-            if (pin.status === "active")
-                return { type: "progress", value: 75 };
-            if (pin.status === "completed")
-                return { type: "verified" };
             return { type: "new" };
         case "summer":
             return { type: "new" };

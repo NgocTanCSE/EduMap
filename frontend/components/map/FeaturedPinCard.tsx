@@ -66,12 +66,12 @@ export function FeaturedPinCard({ pin, onClose, onGo, onOpenTool, onRoute }: Fea
             <div className="font-bold text-xs text-amber-600">{pin.points}</div>
             <div className="text-[10px] text-muted-foreground/70">Điểm số</div>
           </div>)}
-        {pin.current_amount !== undefined && pin.target_amount !== undefined && (<div className="p-2 rounded-lg bg-red-50/20 border border-red-600/20">
+        {Number(pin.current_amount) > 0 && Number(pin.target_amount) > 0 && (<div className="p-2 rounded-lg bg-red-50/20 border border-red-600/20">
             <div className="font-bold text-xs text-red-600">
-              {Math.round((pin.current_amount / pin.target_amount) * 100)}%
+              {Math.min(100, Math.round((Number(pin.current_amount) / Number(pin.target_amount)) * 100))}%
             </div>
             <div className="text-[10px] text-muted-foreground/70">
-              {pin.current_amount?.toLocaleString()}₫ / {pin.target_amount?.toLocaleString()}₫
+              {Number(pin.current_amount).toLocaleString()}₫ / {Number(pin.target_amount).toLocaleString()}₫
             </div>
           </div>)}
         {pin.speed_label && (<div className="p-2 rounded-lg bg-blue-50/20 border border-blue-600/20">
