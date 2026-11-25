@@ -2567,3 +2567,123 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   `balance.py`/`unused.py`/`resolve_imports.py` sạch cho mọi file sửa;
   `trace_map_graph.py` 0 leak leaflet. Runtime truth = host sau khi người dùng
   deploy.
+
+## 30. Dữ liệu thật từ Overpass + sửa 13 lỗi P0/P1 panel /map (2026-11-26)
+
+### 30.1 Nguyên nhân "chẳng bao giờ thấy data mới"
+
+Nightly crawl báo success 4 đêm liên tiếp nhưng DB không có dòng mới
+(0/2744 POI có `source_url`). Hai nguyên nhân chồng nhau:
+
+1. **GitHub secrets `DB_*` CHƯA ĐƯỢC KHAI** — log Actions hiện `DB_HOST: <rỗng>`.
+   `crawl-nightly.yml` chỉ `::warning::` rồi tiếp tục; `db_utils.py` chết
+   `ValueError: invalid literal for int(): ''` ở module-level `DB_CFG` (DB_PORT
+   rỗng) trước cả khi kết nối → mọi crawler (POI + 9 feature crawlers) chạy
+   0 dòng, exit 0 nhờ `|| echo warning`. **Đã sửa**: DB_PORT rỗng → cổng mặc
+   định; thêm step "Fail loudly when DB secrets are missing" trả exit 1 với
+   hướng dẫn khai secrets.
+   **Việc người dùng BẮT BUỘC LÀM**: GitHub → Settings → Secrets and
+   variables → Actions → thêm `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
+   `DB_PASSWORD`, `DB_DATABASE` (giá trị Supabase session pooler, giống
+   `deploy/render-api.env`). Không có secrets thì mọi crawler chỉ là theatre.
+2. **Tavily path phụ thuộc `TAVILY_API_KEY`** (cũng rỗng) — nguồn POI duy nhất
+   trước nay không chạy được. Thay thế không cần key: Overpass (§30.2).
+
+### 30.2 `crawlers/overpass_seed.py` — seed POI thật từ OpenStreetMap
+
+- 3 mirror Overpass theo thứ tự (endpoint nào sống dùng endpoint đó, nhớ vị
+  trí `_good_endpoint`): `maps.mail.ru` (chính, đã test sống),
+  `overpass.private.coffee`, `overpass-api.de`. UA `EduMapCrawler/1.0`,
+  timeout 90s, 1 query/luồn, IPv4-forced.
+- 3 query/bbox: (1) amenity
+  `school|university|library|kindergarten|college|language_school` có name;
+  (2) `cafe|library|community_centre` có `internet_access=yes|wlan|terminal`;
+  (3) mọi `internet_access=wlan` có name (trừ loại bỏ quán bar/khách sạn/…).
+- Cap **theo category** (`OVERPASS_MAX_PER_CATEGORY`, mặc định 600/loại — cap
+  tổng một mình làm 1185 trường nuốt hết 1200 chỗ, wifi bị cắt 0).
+  Bbox mặc định Đồng Nai `10.75,106.60,11.20,107.20`
+  (`OVERPASS_BBOX`).
+- Tên wifi ghép địa điểm: "Cà Phê Napoli — Wifi" (như yêu cầu "wifi đi kèm
+  địa điểm"); description kết thúc provenance §26
+  (`Nguồn chính thức: openstreetmap.org/copyright · Kiểm chứng: <ngày>`).
+- Dry-run thật qua mirror: 1200 POI = 600 school + 311 cafe-wifi + 268 wifi +
+  21 library (bbox Đồng Nai). Upsert `map_points` (status `pending`,
+  dedup name+100m — hợp nhất code `crawl_pois_vietnam.upsert_postgres`) và
+  `locations` (chỉ đụng dòng crawler tạo `created_by IS NULL`; wifi rows
+  `category_id=6`).
+- Chạy: `python3 crawlers/overpass_seed.py --bbox "..." [--dry-run]`.
+  **Không dùng Nominatim để liệt kê POI** (vi phạm ToS OSMF "systematic
+  queries / downloading all POIs in an area") — Overpass hợp lệ
+  (≤10k query/ngày).
+
+### 30.3 Wifi đi kèm địa điểm (hợp nhất 2 nguồn lệch)
+
+- `wifi.rs`: 3 SELECT (list/nearby/by-id) giờ lọc
+  `category_id = 6 OR name/description LIKE '%wifi%'` — trước đây WifiTool
+  thấy 0 điểm dù featured-pins có 13 (3192 dòng `locations` không có
+  category_id, chỉ 13 dòng description `wifi_*`).
+- `map.rs::DB_SELECT_WIFI_LOCATIONS`: hợp nhất cùng điều kiện; trả
+  `ST_AsText(coordinates)` (bản GeoJSON làm `parse_ewkt_point` bỏ hết pin —
+  bug tự phát hiện khi sửa).
+- `DB_INSERT_WIFI` không còn ghi `password_hint` vào cột `description`
+  (lộ mật khẩu qua API public); description cố định
+  "Điểm Wifi do cộng đồng báo cáo".
+- `migrations/seed_overpass_locations.sql`: 13 điểm wifi Biên Hòa đi kèm địa
+  điểm thật, toạ độ copy 13/13 khớp `wifi_crawler.py` (script đối chiếu tự
+  động), idempotent (NOT EXISTS name+100m), workflow tự chạy.
+
+### 30.4 Badge fields cho FeaturedPin (dead-UI thẻ ghim)
+
+`map.rs::FeaturedPin` thêm `status`, `isVerified`, `targetAmount`,
+`currentAmount`, `points` (serde camelCase khớp `FeaturedPinsLayer.tsx`).
+Trước đây frontend khai 8 field mà backend không trả → badge green "new" sai
+hàng loạt, progress donate không bao giờ có, stat-card `FeaturedPinCard` là
+dead code. SQL các SELECT thêm cột tương ứng (cột không tồn tại → hằng
+`FALSE AS is_verified`, đã kiểm `stem_labs` không có cột này trước khi ship).
+
+### 30.5 Sửa 13 lỗi P0/P1 từ 2 báo cáo review (đã commit `311b877`, deploy OK)
+
+Backend: climate bbox + radius camelCase `serde(alias)` (form bbox chết từ
+lúc sinh — heatmap luôn Đồng Nai dù nhập Hà Nội; verify host: bbox 20.9N trả
+điểm 20.905–20.925N); `learning_community.rs` min_rating `/5.0` (slider >1
+xoá sạch kết quả); `donate.rs` amount trả JSON number (progress Infinity).
+
+Frontend: SummerTool đọc đúng field report; ClimateGuardian GeoJSON remount
+theo `fetched_at` + fitBounds 1 lần (`didFitRef`) + heat points `useMemo`
+(bỏ remove/add mỗi render, cả `MapComponent`); DonateTool guard
+`target_amount > 0`; GreenTool bỏ filter chết completed/upcoming; MarketTool
+`createItem` gửi lat/lng center bbox (ghim mới xuất hiện được);
+StemTool không bịa chip "Thiết bị thí nghiệm"; LearningSpace explain inline;
+WifiTool geolocation error callback + `response.ok`.
+
+### 30.6 Tần suất crawl — quyết định thiết kế
+
+- GitHub Actions cron tối thiểu 5 phút (và thường lệch 3–15 phút) → 2 phút
+  không khả thi trên Actions.
+- Render free tier ngủ container sau ~15 phút vắng request → daemon loop
+  trong container chỉ chạy khi có người dùng.
+- Giải pháp hiện tại: nightly qua Actions (đã có Overpass step) +
+  `scripts/run_overpass_interval.sh` (loop `CRAWL_INTERVAL_SECONDS` mặc định
+  120s) sẵn sàng cho Background Worker khi muốn 24/7. Hành vi thực tế:
+  "làm giàu dữ liệu khi app được dùng" — không vượt quota Render 750h/tháng.
+
+### 30.7 Kiểm chứng host sau deploy `311b877` (2026-11-26)
+
+- CI 4/4 check success (api + ai + FE + deploy); `smoke_render.sh` 5/5.
+- `/api/map/featured-pins` 38 pins, green có `status: "active"`,
+  wifi có `isVerified` (badge fields sống).
+- `/api/map/climate-risk?minLat=20.9...` trả heat points 20.905–20.925N
+  (alias camelCase hoạt động; trước đây luôn Đồng Nai).
+- Dispatch crawl tay lần 1 (`45685436200`): Overpass fetch 1200 POI OK,
+  upsert DB chết đúng như §30.1 (secrets rỗng) → đây chính là bằng chứng
+  nguyên nhân gốc.
+
+### 30.8 Việc người dùng phải làm
+
+1. **Khai 5 secrets DB ở GitHub Actions** (xem §30.1) — không làm bước này
+   thì mọi crawler (cũ + mới) không bao giờ ghi được dữ liệu.
+2. Sau khi khai secrets: `workflow_dispatch` crawl-nightly một lần
+   (tick `run_overpass`), rồi kiểm `/api/map/pois` bbox Đồng Nai
+   `category=cafe` phải tăng lên ~300 và các dòng mới có `sourceUrl`.
+3. Tần suất muốn nhanh hơn nightly: dùng `run_overpass_interval.sh` trên
+   Render Background Worker (trả phí) hoặc chấp nhận Actions 5 phút.
