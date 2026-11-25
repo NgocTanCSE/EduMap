@@ -605,6 +605,7 @@ export default function MapPage() {
         }
         setIsRecording(false);
     }, []);
+    useEffect(() => () => stopVoiceSearch(), [stopVoiceSearch]);
     const sendVoiceQuery = useCallback(async (text: string) => {
         setIsRecording(false);
         setShowVoiceResults(true);
@@ -696,14 +697,14 @@ export default function MapPage() {
         setMenuTab("map");
         setMenuOpen(true);
     }, [selectedFeaturedPin]);
-    const filteredLocations = locations.filter((loc) => {
+    const filteredLocations = useMemo(() => locations.filter((loc) => {
         const term = searchTerm.toLowerCase().trim();
         if (!term)
             return true;
         return (loc.name.toLowerCase().includes(term) ||
             (loc.category || "").toLowerCase().includes(term) ||
             (loc.address || "").toLowerCase().includes(term));
-    });
+    }), [locations, searchTerm]);
     const handleSavePin = async () => {
         if (!pinForm.name || !pinningCoord) {
             toast.warning("Vui lòng nhập tên địa điểm.");
@@ -725,7 +726,8 @@ export default function MapPage() {
             if (res.ok) {
                 toast.success("Đã ghim vị trí thành công!");
                 setPinningCoord(null);
-                fetchMapData(activeCategory === "all" ? undefined : activeCategory);
+                lastFetchRef.current = null;
+                fetchMapData(activeCategory === "all" ? undefined : activeCategory, viewport || undefined);
             }
             else {
                 toast.error((errData as any)?.message || "Lỗi khi ghim vị trí.");
@@ -749,6 +751,11 @@ export default function MapPage() {
             setFs(false);
         }
     };
+    useEffect(() => {
+        const onFsChange = () => setFs(!!document.fullscreenElement);
+        document.addEventListener("fullscreenchange", onFsChange);
+        return () => document.removeEventListener("fullscreenchange", onFsChange);
+    }, []);
     const showHomeControls = activeTool === "home";
     const activeToolDef = activeTool === "home" ? null : MAP_TOOL_BY_ID[activeTool];
     const hideBase = activeToolDef?.hideBaseLayers ?? false;
@@ -987,7 +994,7 @@ export default function MapPage() {
       </div>
 
       
-      {showPinLegend && (<div className="absolute bottom-6 right-[4.5rem] z-[45] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
+      {showPinLegend && (<div className="absolute bottom-6 right-[4.5rem] z-[60] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
           <div className="p-2.5 border-b border-border flex items-center justify-between">
             <h4 className="text-xs font-semibold text-foreground">Chú giải ghim bản đồ</h4>
             <button onClick={() => setShowPinLegend(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
@@ -1011,7 +1018,7 @@ export default function MapPage() {
         </div>)}
 
       
-      {showVoiceResults && voiceResults.length > 0 && (<div className="absolute bottom-6 right-[4.5rem] z-[45] w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
+      {showVoiceResults && voiceResults.length > 0 && (<div className="absolute bottom-6 right-[4.5rem] z-[60] w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mic className="w-4 h-4 text-primary"/>
@@ -1020,8 +1027,11 @@ export default function MapPage() {
               </span>
             </div>
             {voiceIntent && (<span className="text-xs px-2 py-0.5 rounded-full bg-muted/30 text-muted-foreground">
-                {voiceIntent}
+                {voiceIntent === "geo_recommend" ? "Tìm địa điểm" : voiceIntent === "report_form" ? "Báo cáo" : voiceIntent === "geo_query" ? "Hỏi thông tin" : voiceIntent}
               </span>)}
+            <button onClick={() => setShowVoiceResults(false)} aria-label="Đóng kết quả giọng nói" className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Đóng">
+              <X className="w-3.5 h-3.5"/>
+            </button>
           </div>
           <div className="p-2 space-y-2">
             {voiceResults.map((poi: any) => (<button key={poi.id} onClick={() => {
