@@ -2687,3 +2687,59 @@ WifiTool geolocation error callback + `response.ok`.
    `category=cafe` phải tăng lên ~300 và các dòng mới có `sourceUrl`.
 3. Tần suất muốn nhanh hơn nightly: dùng `run_overpass_interval.sh` trên
    Render Background Worker (trả phí) hoặc chấp nhận Actions 5 phút.
+
+### 30.9 Chuỗi lỗi data-pipeline đã xử lý (2026-11-26, sau secrets)
+
+Sau khi user khai secrets, 4 lỗi kế tiếp nhau mới cho data thật xuống DB —
+mỗi lần dispatch lại lộ ra lỗi mới:
+
+| Run | Lỗi | Fix |
+|---|---|---|
+| `45690361325` | Overpass cả 3 mirror cùng 504/timeout (quá tải tạm thời), exit ngay | `overpass_seed.py::_post_query` retry 3 vòng, chờ 20s/40s giữa vòng (`OVERPASS_RETRIES`) |
+| `45692740104` | `psycopg2 UndefinedColumn: source_url of map_points` — migration provenance **chưa từng chạy** vì step kiểm `-z "${DB_PASSWORD}"` nhưng env chỉ map `PGPASSWORD` (biến `DB_PASSWORD` không tồn tại trong env của step) → luôn skip | `crawl-nightly.yml` thêm `DB_PASSWORD: ${{ secrets.DB_PASSWORD }}` vào env step |
+| `45695961440` | Migration chạy xong (ALTER OK) nhưng chết ở `seed_overpass_locations.sql`: SELECT tham chiếu `v.source_url` trong khi CROSS JOIN alias là `src` → psql exit 3 | Sửa `src.source_url` |
+| `45697537083` | ✅ **`map_points: inserted=1191, locations: inserted=679 updated=521`** | — |
+
+**Verify trên host sau chuỗi fix (2026-11-26):** cafe Đồng Nai 567 điểm,
+562 có `source_url` trỏ OpenStreetMap thật (node URL); school 599;
+WifiTool thấy 608 điểm (hợp nhất `category_id=6` + `LIKE %wifi%`);
+featured-pins 623 (608 wifi); học bổng 38 dòng mới từ RSS báo chí.
+
+### 30.10 Batch review panel /map — 4 sub-agent, các fix đã deploy
+
+3 trong 4 báo cáo review đã xử lý xong (commit `a132e8c`, `7a302e5`,
+`9f4f309`, `85c3f2e`, `a8135dc`). Các lỗi nặng đã sửa:
+
+**Review FeaturedPinsLayer (3 P0):** FE đọc snake_case trong khi backend serde
+trả camelCase (`isVerified`/`targetAmount`/`currentAmount`) → toàn bộ badge
+verified/progress chết im lặng → normalize 1 lần trong `fetchFeaturedPins`
+(kèm `res.ok` check + guard `|lat|≤90`); guard `Number>0` + cap 100% cho thẻ %
+quyên góp (`null`/`0` trước đây render "NaN%"/"Infinity%"); `%23` trong
+innerHTML SVG là màu invalid (badge đen/vô hình) → dùng `#` trực tiếp; bỏ
+badge "75%" bịa cho green active (vi phạm §26); xoá 4 stat-card dead UI
+(`carbon_saved_kg`/`participants_count`/`speed_label`/`points` — backend không
+trả); `feature_link_for` category lạ trả `/map` thay vì `/`.
+
+**Review ClimateGuardian (1 P1 + 4 P2):** `data.fetched_at` không tồn tại
+trong response → key remount GeoJSON của §30.5 là no-op → panel gắn
+`fetchedAt` (counter) vào result qua `onResult`, overlay dùng làm key; bỏ
+auto-fetch theo keystroke khi fetch đầu lỗi (deps chỉ còn `[active]`); clamp
+bbox `|lat|≤90`/`|lng|≤180` + `altRadius` 1–50 km (trước đây `|| 0` cho phép
+bbox nửa trái đất); LearningSpace default `quietness_min=0` (mặc định 1 lọc
+sạch spot có `quietness=NULL` — tool "Nơi học" trống ròng) + clear
+explanation khi fetch mới; RoutingPanel reset `selectedSafeRouteIdx` khi
+`safeRoutes` đổi; StemTool key equipment ghép index; SummerTool nút đóng
+report dùng `X`.
+
+**Review MapMenu/page (6 P1):** `filteredLocations` bọc `useMemo` (mảng mới
+mỗi keystroke reconcile 1200 marker); refetch sau lưu ghim kèm viewport +
+reset `lastFetchRef` (trước đây fetch không bounds → DEFAULT_BBOX Đồng Nai
+thay POI viewport đang xem); chú giải ghim + card giọng nói `z-[45]` →
+`z-[60]` (bị MapMenu panel `z-[50]` che thành nút chết); card giọng nói thêm
+nút X + intent render nhãn tiếng Việt; `fullscreenchange` listener (thoát
+bằng Esc đồng bộ icon rail); cleanup `recognitionRef` khi unmount.
+
+**Không sửa (chấp nhận, đã ghi nhận):** P1-6 review 1 (QuickDock `z-40` <
+panel `z-[50]` — dock chủ động nhường bằng `maxWidth`, trao đổi tổng thể); POI
+cluster + featured cluster 2 group riêng (cosmetic); P2 nhỏ về a11y
+(`aria-pressed` cho toggle layer) để dành đợt sau.
