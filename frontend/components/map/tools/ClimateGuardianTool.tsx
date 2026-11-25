@@ -49,7 +49,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
     const [altCategory, setAltCategory] = useState("");
     const [altResult, setAltResult] = useState<any>(null);
     const [altLoading, setAltLoading] = useState(false);
-    const [fetchCounter, setFetchCounter] = useState(0);
+    const fetchIdRef = useRef(0);
     const fetchRisk = useCallback(async () => {
         if (!active)
             return;
@@ -68,8 +68,8 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
                 throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const data = unwrapApiResponse<any>(json);
-            setFetchCounter((c) => c + 1);
-            onResult({ ...data, alternatives: altResult });
+            fetchIdRef.current += 1;
+            onResult({ ...data, fetchedAt: fetchIdRef.current, alternatives: altResult });
         }
         catch (err: any) {
             logger.error("Climate risk error", err);
@@ -320,7 +320,7 @@ function ClimateGuardianOverlayMap({ result, points }: {
     return (<>
       {heatLayerPoints.length > 0 && (<HeatmapLayer points={heatLayerPoints}/>)}
 
-      {data?.features?.length > 0 ? (<GeoJSON key={`climate-geojson-${fetchCounter}-${data.features?.length}`} data={data} pathOptions={{
+      {data?.features?.length > 0 ? (<GeoJSON key={`climate-geojson-${data.fetchedAt ?? data.features?.length}`} data={data} pathOptions={{
                 color: "#0ea5e3",
                 weight: 1,
                 opacity: 0.6,
