@@ -105,21 +105,27 @@ def _post_overpass(endpoint: str, ql: str) -> dict:
 
 def _post_query(ql: str) -> dict:
     global _good_endpoint
-    order = OVERPASS_ENDPOINTS[_good_endpoint:] + OVERPASS_ENDPOINTS[:_good_endpoint]
+    attempts = int(os.getenv("OVERPASS_RETRIES", "3"))
     last_err = None
-    for endpoint in order:
-        try:
-            data = _post_overpass(endpoint, ql)
-            _good_endpoint = OVERPASS_ENDPOINTS.index(endpoint)
-            remark = (data.get("remark") or "").strip()
-            if remark:
-                print(f"  [overpass] endpoint {endpoint} remark: {remark}")
-            return data
-        except Exception as exc:
-            last_err = exc
-            print(f"  [overpass] endpoint lỗi {endpoint}: {exc}")
-            time.sleep(1.0)
-    raise RuntimeError(f"Cả 3 Overpass endpoint đều lỗi: {last_err}")
+    for attempt in range(attempts):
+        order = OVERPASS_ENDPOINTS[_good_endpoint:] + OVERPASS_ENDPOINTS[:_good_endpoint]
+        for endpoint in order:
+            try:
+                data = _post_overpass(endpoint, ql)
+                _good_endpoint = OVERPASS_ENDPOINTS.index(endpoint)
+                remark = (data.get("remark") or "").strip()
+                if remark:
+                    print(f"  [overpass] endpoint {endpoint} remark: {remark}")
+                return data
+            except Exception as exc:
+                last_err = exc
+                print(f"  [overpass] endpoint lỗi {endpoint}: {exc}")
+                time.sleep(3.0)
+        if attempt + 1 < attempts:
+            wait = 20.0 * (attempt + 1)
+            print(f"  [overpass] cả 3 endpoint lỗi (lần {attempt + 1}/{attempts}), chờ {wait:.0f}s thử lại")
+            time.sleep(wait)
+    raise RuntimeError(f"Cả 3 Overpass endpoint đều lỗi sau {attempts} vòng: {last_err}")
 
 
 def _category_for(amenity: str) -> str:
