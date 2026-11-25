@@ -2739,7 +2739,26 @@ thay POI viewport đang xem); chú giải ghim + card giọng nói `z-[45]` →
 nút X + intent render nhãn tiếng Việt; `fullscreenchange` listener (thoát
 bằng Esc đồng bộ icon rail); cleanup `recognitionRef` khi unmount.
 
+**Review 4 tool core (Wifi/Green/Donate/Market — P0 donate):** `donate.rs`
+INSERT cast `$4::uuid` trên `transaction_id` là **VARCHAR(255)** còn giá trị
+server sinh `TXN-{ms}-{seq}` → **mọi quyên góp qua panel đều 500** (rollback
+toàn bộ transaction) → bỏ cast (giữ `::uuid` cho `campaign_id`); `wifi.rs`
+trả key `verified` nhưng FE đọc `is_verified` (5 chỗ) → badge xác minh chết →
+đổi JSON key; speed-test trung bình rating sai vĩnh viễn (`rating_count` bị
+nhân 2 lần vào `new_avg` + SELECT không có cột) → SQL tự tính nguyên tử
+`(COALESCE(rating_avg,0)*rating_count+$1)/(rating_count+1)`; Donate/Market
+focus tiêu đề là nút chết thầm lặng (MapBridge nằm trong Overlay không bao giờ
+mount theo §22 → mapRef null) → bỏ MapBridge, panel nhận `onFocusMap` prop,
+trang truyền `focusTarget` qua `FocusHandler` (thêm lastFocusRef chống lặp
+flyTo); `processDonation` đặt `retries: 0` (fetchWithRetry tự retry POST tiền
+→ nguy cơ quyên góp trùng khi 500 sau commit); share.service interface khớp
+JSON backend thật (`ownerId`/`createdAt`/`itemId`/`requesterId`); 6 unused
+imports dọn (X/logger/useMap/L/createClusterIcon); nút Hủy/Đóng dùng `X` thay
+`AlertCircle`.
+
 **Không sửa (chấp nhận, đã ghi nhận):** P1-6 review 1 (QuickDock `z-40` <
 panel `z-[50]` — dock chủ động nhường bằng `maxWidth`, trao đổi tổng thể); POI
-cluster + featured cluster 2 group riêng (cosmetic); P2 nhỏ về a11y
-(`aria-pressed` cho toggle layer) để dành đợt sau.
+cluster + featured cluster 2 group riêng (cosmetic); WifiTool nút Eye chỉ đổi
+icon (state `showLayer` chưa nâng lên trang — để dành đợt layer state chung);
+P2 nhỏ về a11y (`aria-label` icon-only buttons, `aria-pressed` cho toggle
+layer) để dành đợt sau; Donate min amount 1000 validate JS để dành.
