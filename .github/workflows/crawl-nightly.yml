@@ -28,6 +28,11 @@ on:
         type: boolean
         required: false
         default: true
+      run_overpass:
+        description: "Seed POI thật từ Overpass (map_points + locations)"
+        type: boolean
+        required: false
+        default: true
 
 concurrency:
   group: crawl-nightly
@@ -82,6 +87,9 @@ jobs:
           psql -h "${DB_HOST}" -p "${DB_PORT:-6543}" -U "${DB_USERNAME}" -d "${DB_DATABASE}" \
                -v ON_ERROR_STOP=1 \
                -f backend/src/database/migrations/add_content_provenance_columns.sql
+          psql -h "${DB_HOST}" -p "${DB_PORT:-6543}" -U "${DB_USERNAME}" -d "${DB_DATABASE}" \
+               -v ON_ERROR_STOP=1 \
+               -f backend/src/database/migrations/seed_overpass_locations.sql
 
       - name: Run feature crawlers
         env:
@@ -116,3 +124,18 @@ jobs:
           GEOCODE_MAX_PER_RUN: "150"
         run: |
           python3 scripts/crawl_pois_vietnam.py || echo "::warning::poi crawler failed (continuing)"
+
+      - name: Run Overpass POI seed
+        if: ${{ (github.event.inputs.run_overpass == 'true') || (github.event_name == 'schedule') }}
+        env:
+          DB_TYPE: postgres
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          OVERPASS_BBOX: "10.75,106.60,11.20,107.20"
+          OVERPASS_MAX_ELEMENTS: "1200"
+          OVERPASS_MAX_PER_CATEGORY: "600"
+        run: |
+          python3 crawlers/overpass_seed.py --bbox "$OVERPASS_BBOX" || echo "::warning::overpass seed failed (continuing)"

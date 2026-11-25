@@ -44,7 +44,7 @@ function itemCoords(item: MarketItem): [number, number] | null {
     }
     return null;
 }
-function MarketPanel({ result, onResult, loading, setLoading, error, setError, active }: ToolPanelProps) {
+function MarketPanel({ viewport, result, onResult, loading, setLoading, error, setError, active }: ToolPanelProps) {
     const [items, setItems] = useState<MarketItem[]>([]);
     const [category, setCategory] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
@@ -134,8 +134,17 @@ function MarketPanel({ result, onResult, loading, setLoading, error, setError, a
         }
         try {
             setSharing(true);
-            await shareService.createItem(shareForm.name, shareForm.description, shareForm.category);
-            toast.success("Đã chia sẻ tài liệu thành công!");
+            const bb = viewport;
+            const hasCoords = !!bb
+                && Number.isFinite(bb.minLat) && Number.isFinite(bb.maxLat)
+                && Number.isFinite(bb.minLng) && Number.isFinite(bb.maxLng)
+                && Math.abs(bb.minLat) <= 90 && Math.abs(bb.minLng) <= 180;
+            const centerLat = hasCoords ? (bb.minLat + bb.maxLat) / 2 : undefined;
+            const centerLng = hasCoords ? (bb.minLng + bb.maxLng) / 2 : undefined;
+            await shareService.createItem(shareForm.name, shareForm.description, shareForm.category, centerLat, centerLng);
+            toast.success(hasCoords
+                ? "Đã chia sẻ tài liệu thành công! Ghim sẽ hiện ở giữa vùng bản đồ đang xem."
+                : "Đã chia sẻ tài liệu thành công! (Chưa có vị trí — tài liệu sẽ không hiện ghim trên bản đồ)");
             setShowShareForm(false);
             setShareForm({ name: "", description: "", category: "book" });
             void fetchItems(category);

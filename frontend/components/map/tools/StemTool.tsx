@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Atom, MapPin, MonitorSmartphone, Calendar, Loader2, RefreshCw, AlertCircle, Search, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Atom, MapPin, MonitorSmartphone, Calendar, Loader2, RefreshCw, AlertCircle, Search, ShieldCheck, CheckCircle2, X } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
@@ -167,7 +167,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
               </p>
             </div>
             <button onClick={() => setBookingLab(null)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Hủy">
-              <AlertCircle className="h-3 w-3"/>
+              <X className="h-3 w-3"/>
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -193,7 +193,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
             Xác nhận đặt lịch
           </button>
           <p className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
-            <ShieldCheck className="h-3 w-3 text-primary"/> Xác thực bằng AI chống trùng lịch
+            <ShieldCheck className="h-3 w-3 text-primary"/> Kiểm tra trùng lịch theo phòng lab
           </p>
         </div>) : (<>
           {loading && labs.length === 0 ? (<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
@@ -218,10 +218,11 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
                     <BookmarkButton targetType="stem_lab" targetId={lab.id} size="sm"/>
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {(lab.equipment?.length ? lab.equipment.slice(0, 3) : ["Thiết bị thí nghiệm"]).map((eq) => (<button key={eq} type="button" onClick={() => openBooking(lab, eq)} className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground" title={`Đặt ${eq}`}>
+                    {(lab.equipment?.length ? lab.equipment.slice(0, 3) : []).map((eq) => (<button key={eq} type="button" onClick={() => openBooking(lab, eq)} className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground" title={`Đặt ${eq}`}>
                         <MonitorSmartphone className="h-2.5 w-2.5 shrink-0"/>
                         <span className="truncate">{eq}</span>
                       </button>))}
+                    {!lab.equipment?.length && (<span className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[10px] italic text-muted-foreground/60">Chưa khai báo thiết bị</span>)}
                   </div>
                 </div>))}
             </div>)}

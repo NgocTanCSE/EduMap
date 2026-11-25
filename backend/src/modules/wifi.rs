@@ -46,6 +46,8 @@ const DB_SELECT_WIFI_LOCATIONS: &str = r#"
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
     WHERE l.category_id = 6
+       OR LOWER(COALESCE(l.description, '')) LIKE '%wifi%'
+       OR LOWER(COALESCE(l.name, '')) LIKE '%wifi%'
     ORDER BY l.created_at DESC
 "#;
 
@@ -58,7 +60,9 @@ const DB_SELECT_WIFI_NEARBY: &str = r#"
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
     WHERE ST_DWithin(l.coordinates, ST_MakePoint($1, $2)::geography, $3)
-    AND l.category_id = 6
+    AND (l.category_id = 6
+       OR LOWER(COALESCE(l.description, '')) LIKE '%wifi%'
+       OR LOWER(COALESCE(l.name, '')) LIKE '%wifi%')
     ORDER BY l.created_at DESC
     LIMIT $4 OFFSET $5
 "#;
@@ -71,13 +75,17 @@ const DB_SELECT_WIFI_BY_ID: &str = r#"
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
-    WHERE l.id::text = $1 AND l.category_id = 6
+    WHERE l.id::text = $1
+      AND (l.category_id = 6
+       OR LOWER(COALESCE(l.description, '')) LIKE '%wifi%'
+       OR LOWER(COALESCE(l.name, '')) LIKE '%wifi%')
 "#;
 
 const DB_INSERT_WIFI: &str = r#"
-    INSERT INTO locations (name, address, category_id, coordinates, created_by,
-                           created_at, updated_at)
-    VALUES ($1,$2,6,ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,$5::uuid,NOW(),NOW())
+    INSERT INTO locations (name, address, category_id, coordinates, description,
+                           created_by, created_at, updated_at)
+    VALUES ($1,$2,6,ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
+            'Điểm Wifi do cộng đồng báo cáo',$5::uuid,NOW(),NOW())
     RETURNING id::text AS id,
               ST_X(coordinates::geometry) AS lng, ST_Y(coordinates::geometry) AS lat
 "#;

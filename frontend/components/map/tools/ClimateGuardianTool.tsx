@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CloudRain, MapPin, RefreshCw, AlertCircle, Info, CheckCircle2, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
@@ -262,6 +262,11 @@ function ClimateGuardianOverlayMap({ result, points }: {
     const data = useMemo(() => result || null, [result]);
     const alternatives = useMemo(() => result?.alternatives || null, [result]);
     const heatPoints = useMemo(() => data?.heat_points || [], [data]);
+    const heatLayerPoints = useMemo(() => heatPoints.map((p: any) => ({
+                lat: Number(p[0]),
+                lng: Number(p[1]),
+                intensity: Number(p[2] || 0),
+            })), [heatPoints]);
     const riskRanking = useMemo(() => data?.risk_ranking || [], [data]);
     const fitPoints = useMemo(() => {
         const pts: {
@@ -290,26 +295,24 @@ function ClimateGuardianOverlayMap({ result, points }: {
         });
         return pts;
     }, [data, alternatives]);
+    const didFitRef = useRef(false);
     useEffect(() => {
-        if (fitPoints.length > 0) {
+        if (fitPoints.length > 0 && !didFitRef.current) {
             const group = L.featureGroup();
             fitPoints.forEach((ll) => group.addLayer(L.marker([ll.lat, ll.lng], {})));
             const bounds = group.getBounds();
             if (bounds.isValid())
                 map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
             group.clearLayers();
+            didFitRef.current = true;
         }
     }, [fitPoints, map]);
     if (!data && !alternatives)
         return null;
     return (<>
-      {heatPoints.length > 0 && (<HeatmapLayer points={heatPoints.map((p: any) => ({
-                lat: Number(p[0]),
-                lng: Number(p[1]),
-                intensity: Number(p[2] || 0),
-            }))}/>)}
+      {heatLayerPoints.length > 0 && (<HeatmapLayer points={heatLayerPoints}/>)}
 
-      {data?.features?.length > 0 ? (<GeoJSON data={data} pathOptions={{
+      {data?.features?.length > 0 ? (<GeoJSON key={data.fetched_at ?? `climate-geojson-${data.features?.length}`} data={data} pathOptions={{
                 color: "#0ea5e3",
                 weight: 1,
                 opacity: 0.6,

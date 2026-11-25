@@ -169,7 +169,7 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
               <Loader2 className="h-4 w-4 animate-spin"/> Đang tải...
             </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có chiến dịch nào.</p>) : (<div className="max-h-72 space-y-1 overflow-y-auto scrollbar-hide">
               {filtered.map((camp) => {
-                const progress = Math.min(100, Math.round((camp.current_amount / camp.target_amount) * 100)) || 0;
+                const progress = camp.target_amount > 0 ? Math.min(100, Math.round((camp.current_amount / camp.target_amount) * 100)) : 0;
                 return (<div key={camp.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
                     <div className="flex items-start justify-between gap-2">
                       <button type="button" onClick={() => {
@@ -227,7 +227,7 @@ function DonateOverlay({ result }: ToolOverlayProps) {
             if (!coords)
                 return null;
             const [lat, lng] = coords;
-            const progress = Math.min(100, Math.round((camp.current_amount / camp.target_amount) * 100)) || 0;
+            const progress = camp.target_amount > 0 ? Math.min(100, Math.round((camp.current_amount / camp.target_amount) * 100)) : 0;
             return (<React.Fragment key={camp.id}>
             <Circle center={[lat, lng]} radius={500} pathOptions={{
                     color: "#ef4444",

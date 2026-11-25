@@ -84,13 +84,15 @@ const DB_SELECT_NEARBY_POIS: &str = r#"
 
 const DB_SELECT_STEM_LABS: &str = r#"
     SELECT id, name, ST_AsText(location_point) AS location_point,
-           location_point_text AS location_point_text, description
+           location_point_text AS location_point_text, description,
+           FALSE AS is_verified
     FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000
 "#;
 
 const DB_SELECT_GREEN_CHALLENGES: &str = r#"
     SELECT id, title AS name, description,
-           CAST(lat AS DOUBLE PRECISION) AS lat, CAST(lng AS DOUBLE PRECISION) AS lng, address
+           CAST(lat AS DOUBLE PRECISION) AS lat, CAST(lng AS DOUBLE PRECISION) AS lng, address,
+           status
     FROM green_challenges
     WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = 'active'
     LIMIT 5000
@@ -103,21 +105,29 @@ const DB_SELECT_SUMMER_CAMPAIGNS: &str = r#"
 "#;
 
 const DB_SELECT_WIFI_LOCATIONS: &str = r#"
-    SELECT id, name, ST_AsText(coordinates) AS coordinates, address, description
-    FROM locations
-    WHERE (LOWER(description) LIKE '%wifi%' OR LOWER(name) LIKE '%wifi%')
-    AND coordinates IS NOT NULL LIMIT 5000
+    SELECT l.id::text AS id, l.name, l.address,
+           l.is_verified AS verified, l.created_by, l.created_at,
+           ST_AsText(l.coordinates) AS coordinates,
+           l.description
+    FROM locations l
+    WHERE l.category_id = 6
+       OR LOWER(COALESCE(l.description, '')) LIKE '%wifi%'
+       OR LOWER(COALESCE(l.name, '')) LIKE '%wifi%'
+    ORDER BY l.created_at DESC
+    LIMIT 5000
 "#;
 
 const DB_SELECT_DONATION_CAMPAIGNS: &str = r#"
     SELECT id, title AS name, description, ST_AsText(location_point) AS location_point,
-           address, status
+           address, status,
+           CAST(target_amount AS DOUBLE PRECISION) AS target_amount,
+           CAST(current_amount AS DOUBLE PRECISION) AS current_amount
     FROM donation_campaigns WHERE location_point IS NOT NULL AND status = 'active' LIMIT 5000
 "#;
 
 const DB_SELECT_SHARED_ITEMS: &str = r#"
     SELECT id, name, description, category, CAST(lat AS DOUBLE PRECISION) AS lat,
-           CAST(lng AS DOUBLE PRECISION) AS lng, address
+           CAST(lng AS DOUBLE PRECISION) AS lng, address, status
     FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = 'available' LIMIT 5000
 "#;
 
@@ -232,12 +242,17 @@ pub struct RouteQuery {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClimateRiskQuery {
+    #[serde(alias = "minLat")]
     pub min_lat: Option<String>,
+    #[serde(alias = "maxLat")]
     pub max_lat: Option<String>,
+    #[serde(alias = "minLng")]
     pub min_lng: Option<String>,
+    #[serde(alias = "maxLng")]
     pub max_lng: Option<String>,
     pub lat: Option<String>,
     pub lng: Option<String>,
+    #[serde(alias = "radiusKm")]
     pub radius_km: Option<String>,
     pub date: Option<String>,
 }
@@ -246,10 +261,15 @@ pub struct ClimateRiskQuery {
 pub struct ClimateAlternativesForm {
     pub lat: Option<f64>,
     pub lng: Option<f64>,
+    #[serde(alias = "minLat")]
     pub min_lat: Option<f64>,
+    #[serde(alias = "maxLat")]
     pub max_lat: Option<f64>,
+    #[serde(alias = "minLng")]
     pub min_lng: Option<f64>,
+    #[serde(alias = "maxLng")]
     pub max_lng: Option<f64>,
+    #[serde(alias = "radiusKm")]
     pub radius_km: Option<f64>,
     pub category: Option<String>,
 }
@@ -349,6 +369,15 @@ pub struct FeaturedPin {
     pub lng: f64,
     pub description: Option<String>,
     pub address: Option<String>,
+    pub status: Option<String>,
+    #[serde(rename = "isVerified")]
+    pub is_verified: bool,
+    #[serde(rename = "targetAmount")]
+    pub target_amount: Option<f64>,
+    #[serde(rename = "currentAmount")]
+    pub current_amount: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub points: Option<i64>,
     #[serde(rename = "featureLink")]
     pub feature_link: String,
 }
@@ -705,6 +734,11 @@ pub async fn get_featured_pins(
             lng,
             description: crate::db::opt_text(&row, "description"),
             address: crate::db::opt_text(&row, "location_point_text"),
+            status: None,
+            is_verified: crate::db::flag(&row, "is_verified"),
+            target_amount: None,
+            current_amount: None,
+            points: None,
             feature_link: feature_link_for("stem").to_string(),
         });
     }
@@ -728,6 +762,11 @@ pub async fn get_featured_pins(
             lng,
             description: crate::db::opt_text(&row, "description"),
             address: crate::db::opt_text(&row, "address"),
+            status: crate::db::opt_text(&row, "status"),
+            is_verified: false,
+            target_amount: None,
+            current_amount: None,
+            points: None,
             feature_link: feature_link_for("green").to_string(),
         });
     }
@@ -751,6 +790,11 @@ pub async fn get_featured_pins(
             lng,
             description: crate::db::opt_text(&row, "description"),
             address: Some(crate::db::opt_text(&row, "location").unwrap_or_default()),
+            status: None,
+            is_verified: false,
+            target_amount: None,
+            current_amount: None,
+            points: None,
             feature_link: feature_link_for("summer").to_string(),
         });
     }
@@ -776,6 +820,11 @@ pub async fn get_featured_pins(
             lng,
             description: crate::db::opt_text(&row, "description"),
             address: crate::db::opt_text(&row, "address"),
+            status: None,
+            is_verified: crate::db::flag(&row, "verified"),
+            target_amount: None,
+            current_amount: None,
+            points: None,
             feature_link: feature_link_for("wifi").to_string(),
         });
     }
@@ -801,6 +850,11 @@ pub async fn get_featured_pins(
             lng,
             description: crate::db::opt_text(&row, "description"),
             address: crate::db::opt_text(&row, "address"),
+            status: crate::db::opt_text(&row, "status"),
+            is_verified: false,
+            target_amount: crate::db::opt_num(&row, "target_amount"),
+            current_amount: crate::db::opt_num(&row, "current_amount"),
+            points: None,
             feature_link: feature_link_for("donate").to_string(),
         });
     }
@@ -834,6 +888,11 @@ pub async fn get_featured_pins(
             lng,
             description: Some(desc),
             address: crate::db::opt_text(&row, "address"),
+            status: crate::db::opt_text(&row, "status"),
+            is_verified: false,
+            target_amount: None,
+            current_amount: None,
+            points: None,
             feature_link: feature_link_for("market").to_string(),
         });
     }

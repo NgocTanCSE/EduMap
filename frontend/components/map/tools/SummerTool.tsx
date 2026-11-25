@@ -154,23 +154,23 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
             </div>) : reportData ? (<div className="mt-2 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg border border-border bg-muted/20 p-2">
-                  <p className="text-[10px] text-muted-foreground">TNV đang hoạt động</p>
-                  <p className="text-lg font-bold text-primary">{reportData.total_volunteers_active || 0}</p>
+                  <p className="text-[10px] text-muted-foreground">TNV đăng ký</p>
+                  <p className="text-lg font-bold text-primary">{reportData.total_volunteers_approved || 0}</p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-2">
-                  <p className="text-[10px] text-muted-foreground">Tiến độ nhiệm vụ</p>
-                  <p className="text-lg font-bold text-accent">{reportData.completed_percentage || "0%"}</p>
+                  <p className="text-[10px] text-muted-foreground">Số hoạt động</p>
+                  <p className="text-lg font-bold text-accent">{reportData.activity_count || 0}</p>
                 </div>
               </div>
               <div className="max-h-40 space-y-1 overflow-y-auto scrollbar-hide">
                 {reportData.activities?.length > 0 ? reportData.activities.map((act: any, idx: number) => (<div key={idx} className="rounded-lg border border-border p-2 text-[11px]">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium text-foreground">{act.type}</span>
+                      <span className="truncate font-medium text-foreground">{act.title}</span>
                       <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{act.status}</span>
                     </div>
                     <p className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground/70">
-                      <span>{act.hours} giờ</span>
-                      <span className="flex items-center gap-0.5"><Users className="h-2.5 w-2.5"/> {act.volunteers} TNV</span>
+                      <span>{act.hours_spent} giờ</span>
+                      <span className="flex items-center gap-0.5"><Users className="h-2.5 w-2.5"/> {act.volunteer_count} TNV</span>
                     </p>
                   </div>)) : (<p className="py-2 text-center text-[11px] italic text-muted-foreground/60">
                     Chưa có nhật ký hoạt động cho ngày này.

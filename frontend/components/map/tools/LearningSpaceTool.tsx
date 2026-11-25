@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { BookOpen, MapPin, Navigation, Wifi, Star, Clock, Users, RefreshCw, AlertCircle, Info, Wind, Loader2, Search } from "lucide-react";
+import { BookOpen, MapPin, Navigation, Wifi, Star, Clock, Users, RefreshCw, AlertCircle, Info, Wind, Loader2, Search, X } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
@@ -50,6 +50,7 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
     });
     const [spotCount, setSpotCount] = useState(0);
     const [degraded, setDegraded] = useState(false);
+    const [explanation, setExplanation] = useState<{ name: string; text: string } | null>(null);
     const spots: ScoredSpot[] = useMemo(() => (Array.isArray(result) ? result : []), [result]);
     const fetchSpots = useCallback(async (params: RecommendParams) => {
         try {
@@ -99,13 +100,15 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
     };
     const handleExplain = async (entry: ScoredSpot) => {
         if (entry.explanation) {
-            toast.info(entry.explanation, { duration: 8000 });
+            setExplanation({ name: entry.spot.name, text: entry.explanation });
             return;
         }
         try {
             const res = await learningSpaceService.explainSpot(entry, filters);
             if (res.explanation)
-                toast.info(res.explanation, { duration: 8000 });
+                setExplanation({ name: entry.spot.name, text: res.explanation });
+            else
+                toast.error("Không thể lấy giải thích");
         }
         catch {
             toast.error("Không thể lấy giải thích");
@@ -225,6 +228,16 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
               </button>
             </div>);
         })}
+        </div>)}
+
+      {explanation && (<div className="rounded-lg border border-accent/30 bg-accent/5 p-2 text-[11px]">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-medium text-accent">{explanation.name}</p>
+            <button type="button" onClick={() => setExplanation(null)} className="rounded p-0.5 text-muted-foreground hover:bg-muted/30" title="Đóng">
+              <X className="w-3 h-3"/>
+            </button>
+          </div>
+          <p className="mt-1 whitespace-pre-line text-muted-foreground">{explanation.text}</p>
         </div>)}
 
       {error && (<div className="flex items-center gap-1.5 rounded-lg bg-muted/10 p-2 text-xs text-muted-foreground/60">

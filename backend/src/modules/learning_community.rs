@@ -536,7 +536,7 @@ pub async fn recommend_spots(
             continue;
         }
         if let Some(min_rating) = q.min_rating {
-            if norm(s.get("rating_avg"), 5.0) < min_rating {
+            if norm(s.get("rating_avg"), 5.0) < (min_rating / 5.0) {
                 continue;
             }
         }

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { Leaf, CheckCircle2, Clock, Users, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
+import { Leaf, Clock, Users, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
@@ -12,7 +12,7 @@ interface GreenChallenge {
     id: string;
     title: string;
     description: string;
-    status: "active" | "completed" | "upcoming";
+    status: "active";
     carbon_saved_kg: number;
     participants_count: number;
     points?: number;
@@ -26,22 +26,15 @@ const STATUS_HALO_COLOR: Record<string, {
     label: string;
 }> = {
     active: { color: "#10b981", label: "Đang diễn ra" },
-    completed: { color: "#22c55e", label: "Hoàn thành" },
-    upcoming: { color: "#f59e0b", label: "Sắp diễn ra" },
 };
 const STATUS_FILTER_LABELS: Record<string, string> = {
     all: "Tất cả",
     active: "Đang diễn ra",
-    completed: "Hoàn thành",
-    upcoming: "Sắp diễn ra",
 };
 function greenBadge(challenge: GreenChallenge): PinBadge | undefined {
-    switch (challenge.status) {
-        case "completed": return { type: "verified" };
-        case "active": return { type: "progress", value: Math.min(100, Math.round((challenge.participants_count / 50) * 100)) };
-        case "upcoming": return { type: "new" };
-        default: return undefined;
-    }
+    if (challenge.status !== "active")
+        return undefined;
+    return { type: "progress", value: Math.min(100, Math.round((challenge.participants_count / 50) * 100)) };
 }
 export function GreenPanel({ viewport, result, onResult, loading, setLoading, error, setError, active, user, }: ToolPanelProps) {
     const [challenges, setChallenges] = useState<GreenChallenge[]>([]);
@@ -123,7 +116,7 @@ export function GreenPanel({ viewport, result, onResult, loading, setLoading, er
       {filtered.length > 0 ? (<div className="space-y-1 max-h-52 overflow-y-auto scrollbar-hide">
           {filtered.map((c) => (<div key={c.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="flex items-center gap-1.5 font-medium text-foreground">
-                {c.status === "completed" ? (<CheckCircle2 className="w-3 h-3 text-green-600"/>) : c.status === "active" ? (<Clock className="w-3 h-3 text-orange-500"/>) : (<BarChart3 className="w-3 h-3 text-blue-500"/>)}
+                {c.status === "active" ? (<Clock className="w-3 h-3 text-orange-500"/>) : (<BarChart3 className="w-3 h-3 text-blue-500"/>)}
                 {c.title}
               </div>
               {c.carbon_saved_kg > 0 && (<p className="text-muted-foreground/60 mt-0.5">

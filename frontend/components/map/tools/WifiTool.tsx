@@ -132,6 +132,8 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
             try {
                 setNearby(true);
                 const response = await fetchWithRetry(`/api/wifi/locations/nearby?lat=${latitude}&lng=${longitude}`);
+                if (!response.ok)
+                    throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
                 const locations = unwrapApiResponse<any>(data);
                 const raw = Array.isArray(data?.data) ? data.data : Array.isArray(locations) ? locations : [];
@@ -145,7 +147,9 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
             finally {
                 setNearby(false);
             }
-        });
+        }, () => {
+            toast.error("Không thể lấy vị trí. Kiểm tra quyền định vị của trình duyệt.");
+        }, { timeout: 10000 });
     };
     const freeCount = wifiLocations.filter((w) => w.is_free === true).length;
     const paidCount = wifiLocations.filter((w) => w.is_free === false).length;

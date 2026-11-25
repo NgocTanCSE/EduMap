@@ -26,6 +26,12 @@ EDUMAP_CRAWL_YEAR=2026
 # Runs 1h after feature crawlers so the DB is warm.
 0 1 * * * root bash /app/scripts/run_crawl_pois.sh >> /app/crawlers/crawled_data/pois_crawl.log 2>&1
 
+# --- Overpass POI seed (map_points + locations) ---
+# Chạy qua GitHub Actions (crawl-nightly.yml, step "Run Overpass POI seed")
+# hoặc thủ công: python3 crawlers/overpass_seed.py --bbox "10.75,106.60,11.20,107.20"
+# Không chạy trong container này — container crawler chỉ tồn tại ở local/legacy
+# (Render không chạy cron; sản xuất dùng GitHub Actions).
+
 # --- optional FULL REFRESH (nationwide POI crawl + seed rebuild, DROPS schema) ---
 # MANUAL / gated only — never auto-run in dev (would wipe user data like
 # bookmarks/registrations). Enable explicitly via EDUMAP_FULL_REFRESH=1 in .env

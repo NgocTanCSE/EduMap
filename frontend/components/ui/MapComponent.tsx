@@ -467,6 +467,9 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         }
     }, [routingMode, onMapClick]);
     const hiddenPinCategories = useMemo(() => hiddenPinCategoriesProp ?? new Set<string>(), [hiddenPinCategoriesProp]);
+    const heatmapPoints = useMemo(() => points
+        .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
+        .map(p => ({ lat: Number(p.lat), lng: Number(p.lng), intensity: 0.8 })), [points]);
     const fetchRoute = useCallback(async (originPoint: {
         lat: number;
         lng: number;
@@ -818,7 +821,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
 
         {geoJsonData && <HubGeoJsonLayer data={geoJsonData}/>}
 
-        {showHeatmap ? (<HeatmapLayer points={points.filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).map(p => ({ lat: Number(p.lat), lng: Number(p.lng), intensity: 0.8 }))}/>) : (<MarkerClusterGroup chunkedLoading>
+        {showHeatmap ? (<HeatmapLayer points={heatmapPoints}/>) : (<MarkerClusterGroup chunkedLoading>
             {points
                 .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
                 .map((p) => {

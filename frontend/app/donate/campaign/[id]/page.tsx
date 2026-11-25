@@ -77,7 +77,7 @@ export default function DonationDetailPage({ params }: {
         </button>
       </div>);
     }
-    const progress = Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) || 0;
+    const progress = campaign.target_amount > 0 ? Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) : 0;
     const formattedEndDate = campaign.end_date
         ? new Date(campaign.end_date).toLocaleDateString('vi-VN')
         : 'Không giới hạn';

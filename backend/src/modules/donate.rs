@@ -322,10 +322,12 @@ fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
         "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
-        "target_amount": crate::db::opt_text(&row, "target_amount")
-            .unwrap_or_else(|| "0".to_string()),
-        "current_amount": crate::db::opt_text(&row, "current_amount")
-            .unwrap_or_else(|| "0".to_string()),
+        "target_amount": crate::db::opt_num(&row, "target_amount").map(|v| {
+            serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null)
+        }),
+        "current_amount": crate::db::opt_num(&row, "current_amount").map(|v| {
+            serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null)
+        }),
         "organizer_id": crate::db::opt_text(&row, "organizer_id").unwrap_or_default(),
         "location_point": crate::db::opt_text(&row, "location_point"),
         "address": crate::db::opt_text(&row, "address").unwrap_or_default(),

@@ -26,7 +26,7 @@ export interface BorrowRequest {
 }
 class ShareService {
     private readonly API_URL = '/api/share';
-    async createItem(name: string, description: string, category: string): Promise<any> {
+    async createItem(name: string, description: string, category: string, lat?: number, lng?: number, address?: string): Promise<any> {
         const token = authService.getAccessToken();
         if (!token)
             throw new Error('Vui lòng đăng nhập để chia sẻ');
@@ -37,7 +37,7 @@ class ShareService {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name, description, category }),
+                body: JSON.stringify({ name, description, category, lat: lat ?? null, lng: lng ?? null, address: address ?? null }),
             });
             const data = await response.json();
             if (!response.ok)
