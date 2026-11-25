@@ -8,7 +8,7 @@
 INSERT INTO locations (name, description, category_id, coordinates, address, source_url, is_verified, status, created_at, updated_at)
 SELECT v.name, v.description, 6,
        ST_SetSRID(ST_MakePoint(v.lng, v.lat), 4326)::geography,
-       v.address, v.source_url, false, 'active', NOW(), NOW()
+       v.address, src.source_url, false, 'active', NOW(), NOW()
 FROM (VALUES
   ('Công viên Biên Hùng', 'Điểm wifi công cộng tại công viên, khu trung tâm TP. Biên Hòa. Nguồn chính thức: https://www.openstreetmap.org/copyright · Kiểm chứng: 2026-11-26', 10.9155, 106.8245, 'Biên Hòa, Đồng Nai'),
   ('Công viên Dương Tử Giang', 'Điểm wifi công cộng tại công viên, TP. Biên Hòa. Nguồn chính thức: https://www.openstreetmap.org/copyright · Kiểm chứng: 2026-11-26', 10.9485, 106.8350, 'Biên Hòa, Đồng Nai'),
