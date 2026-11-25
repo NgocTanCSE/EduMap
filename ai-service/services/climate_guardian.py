@@ -69,7 +69,7 @@ OWM_TIMEOUT = float(os.getenv("OWM_TIMEOUT_SECONDS", "6"))
 OM_ELEV_BASE = "https://api.open-meteo.com/v1/elevation"
 OM_WEATHER_BASE = "https://api.open-meteo.com/v1/forecast"
 OM_ELEV_TIMEOUT = float(os.getenv("OM_ELEV_TIMEOUT_SECONDS", "6"))
-OM_ELEV_BATCH = int(os.getenv("OM_ELEV_BATCH_SIZE", "100"))
+OM_ELEV_BATCH = int(os.getenv("OM_ELEV_BATCH_SIZE", "25"))
 
 
 
@@ -354,6 +354,7 @@ def _get_elevations_bulk(coords: List[Tuple[float, float]]) -> Dict[str, Optiona
         data = _curl_get_json(f"{OM_ELEV_BASE}?{query}", timeout=OM_ELEV_TIMEOUT)
         if data is None or not isinstance(data.get("elevation"), list):
             _OM_ELEV_DOWN_UNTIL = time.monotonic() + 300
+            print(f"[climate] elevation batch {start // OM_ELEV_BATCH} failed ({len(query)}B URL) — circuit breaker 5 phút, terrain risk = 0")
             return {k: cache.get(k) for k in keys}
         for k, e in zip(batch, data["elevation"]):
             try:
@@ -866,6 +867,9 @@ class ClimateGuardianService:
             for j in range(len(lngs) - 1)
         ]
         elevations = _get_elevations_bulk(cell_centers)
+        if not any(v is not None for v in elevations.values()):
+            degraded = True
+            reason = (reason + " | " if reason else "") + "Không lấy được độ cao đất (Open-Meteo) — terrain risk = 0, dùng bản đồ ngập tĩnh."
 
         max_cell_risk = 0.0
         for clat, clng in cell_centers:
@@ -995,6 +999,7 @@ class ClimateGuardianService:
 
         nearby: List[Dict[str, Any]] = []
         elevations = _get_elevations_bulk([(f["lat"], f["lng"]) for f in facilities])
+        elevations_missing = facilities and not any(v is not None for v in elevations.values())
         for f in facilities:
             dist = _haversine_km(lat, lng, f["lat"], f["lng"])
             if dist <= radius_km:
@@ -1068,8 +1073,8 @@ class ClimateGuardianService:
                 "radius_km": radius_km,
                 "category_filter": category or "all",
                 "flood_zones_loaded": len(zones),
-                "degraded": len(facilities) == 0,
-                "reason": "Không tìm thấy cơ sở giáo dục nào trong bán kính." if not nearby else None,
+                "degraded": len(facilities) == 0 or elevations_missing,
+                "reason": ("Không lấy được độ cao đất (Open-Meteo) — safety tính theo flood risk." if elevations_missing else None) or ("Không tìm thấy cơ sở giáo dục nào trong bán kính." if not nearby else None),
                 "last_updated": datetime.now().isoformat(),
             },
         }
