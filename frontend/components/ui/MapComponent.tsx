@@ -302,6 +302,7 @@ interface InteractiveMapProps {
     overlay?: React.ReactNode;
     activeToolId?: string | null;
     visiblePinCategories?: Set<string>;
+    hiddenPinCategories?: Set<string> | null;
     menuSlot?: HTMLElement | null;
     menuTab?: string | null;
     onDirectionsOpen?: () => void;
@@ -314,7 +315,7 @@ interface InteractiveMapProps {
         lng: number;
     } | null;
 }
-export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, menuSlot = null, menuTab = null, onDirectionsOpen, directionsTarget = null, focusTarget = null, }: InteractiveMapProps) {
+export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, hiddenPinCategories: hiddenPinCategoriesProp = null, menuSlot = null, menuTab = null, onDirectionsOpen, directionsTarget = null, focusTarget = null, }: InteractiveMapProps) {
     const defaultCenter: [
         number,
         number
@@ -465,7 +466,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
             onMapClick(lat, lng);
         }
     }, [routingMode, onMapClick]);
-    const hiddenPinCategories = useMemo(() => new Set<string>(), []);
+    const hiddenPinCategories = useMemo(() => hiddenPinCategoriesProp ?? new Set<string>(), [hiddenPinCategoriesProp]);
     const fetchRoute = useCallback(async (originPoint: {
         lat: number;
         lng: number;
@@ -849,7 +850,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
             })}
           </MarkerClusterGroup>)}
 
-        {!showHeatmap && featuredPins.length > 0 && (<FeaturedPinsLayer pins={featuredPins} visible={!showHeatmap} visibleCategories={visiblePinCategories} hiddenCategories={hiddenPinCategories} onPinClick={onFeaturedPinClick}/>)}
+        {featuredPins.length > 0 && (<FeaturedPinsLayer pins={featuredPins} visible={true} visibleCategories={visiblePinCategories} hiddenCategories={hiddenPinCategories} onPinClick={onFeaturedPinClick}/>)}
         {origin && <OriginMarker position={[origin.lat, origin.lng]}/>}
         {destination && <DestinationMarker position={[destination.lat, destination.lng]}/>}
 

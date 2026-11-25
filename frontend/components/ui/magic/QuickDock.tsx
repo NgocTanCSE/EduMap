@@ -50,7 +50,7 @@ export function QuickDock({ className, onOpenDashboard }: QuickDockProps) {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
     if (collapsed) {
-        return (<div className={cn("fixed bottom-5 z-40 transition-all duration-300", onMap ? "right-[4.75rem]" : "right-5", className)}>
+        return (<div className={cn("fixed bottom-5 z-40 transition-all duration-300", onMap ? "left-5" : "right-5", className)}>
         <button onClick={() => setCollapsed(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-border/80 bg-card/90 text-primary shadow-pop backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:bg-card" title="Mở thanh điều hướng" aria-label="Mở thanh điều hướng">
           <SlidersHorizontal className="h-5 w-5"/>
         </button>
@@ -129,7 +129,9 @@ export function QuickDock({ className, onOpenDashboard }: QuickDockProps) {
         </div>
       </div>);
     }
-    return (<div className={cn("fixed bottom-5 left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-2 transition-all duration-300", className)}>
+    return (<div className={cn("fixed bottom-5 z-40 flex items-center gap-2 transition-all duration-300", onMap
+            ? "left-5"
+            : "left-1/2 -translate-x-1/2", className)} style={onMap ? { maxWidth: "calc(100vw - var(--edumap-map-panel-w, 4.5rem) - 2.5rem)" } : undefined}>
       <Dock className="max-w-full overflow-x-auto scrollbar-hide shadow-pop border border-border/80 bg-card/90 backdrop-blur-xl">
         <DockIcon>
           <AnimatedThemeToggler size="sm" className="border-0 bg-transparent shadow-none hover:bg-secondary/80"/>

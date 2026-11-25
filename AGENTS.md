@@ -80,7 +80,8 @@ BACKEND_URL / AI_SERVICE_URL = the host's URL.
 Multiple standalone pages that share a domain have been consolidated into
 **hub pages with tab/tool navigation**:
 
-- **`/map` (Map Hub)** — 14 tool tabs in a single sidebar panel:
+- **`/map` (Map Hub)** — 14 tool tabs in a single sidebar panel (2026-10-27;
+  hiện 8 hiển thị + 5 archived — xem §22):
   Data Hunter, Gap Predictor, Resource Optimizer, GeoVision AI, Survey Planner,
   Climate Guardian, AI Agent, Wifi, Green, Nơi học, STEM Lab, Mùa hè,
   Quyên góp, Chợ chia sẻ.
@@ -98,10 +99,10 @@ Multiple standalone pages that share a domain have been consolidated into
       `backend/src/modules/map.rs::feature_link_for`
       trả thẳng `/map?tool=...` cho cả 6 category ghim.
   - Tools use `next/dynamic({ ssr: false })` to avoid leaflet SSR crashes.
-  - Registry: `components/map/tools/registry.tsx` (14 tools, `MAP_TOOLS` array:
-    6 `core` — climate, wifi, green, learning-space, donate, market — và
-    8 `analysis` — data-hunter, gap-predictor, resource-optimizer, geo-vision,
-    survey-planner, ai-agent, stem, summer).
+  - Registry: `components/map/tools/registry.tsx` (8 tool hiển thị trong
+    `VISIBLE_TOOL_META` + 5 archived trong `ARCHIVED_TOOL_META`, xem §22;
+    `MAP_TOOLS` array dựng từ visible: climate, wifi, green, learning-space,
+    stem, summer, donate, market).
   - Each tool module exports `XxxPanel` + `XxxOverlay` as named exports.
   - **Coordinate fix (2026-10-30):**
     - `GreenOverlay` renders `green_challenges.lat`/`lng` directly. The shipped
@@ -1870,36 +1871,57 @@ Navigation is now a **single source of truth** — `frontend/src/lib/feature-cat
 - `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`, both
   `live + dead = total` sums hold (`⊆ True`) — no API surface was lost.
 
-## 22. Map Hub tool grouping (2026-11-17)
-The Map Hub surfaced all 10 tools as one flat tab strip (`app/map/page.tsx`), which
-makes a first-time user scan the whole strip before finding the tool they need.
-Tools are now **tiered** so the strip reads as *what you reach for* first, then
-*what you dig into*.
+## 22. Map Hub = bản đồ lớp ghim (2026-11-25, thay "tool grouping" 2026-11-17)
 
-**Rules**
+`/map` không còn nhóm tab "Phân tích". Dải tab là **Tổng quan + 8 tool hiển thị**;
+5 tool "Phân tích" bị **archived khỏi UI nhưng giữ nguyên code + API**
+(component, route Rust, BFF, catalog chỉ mất mục UI — `ARCHIVED_TOOL_META`).
 
-- `tier: "core"` — looked at on almost every map visit (browse POIs, wifi, green
-  spaces, climate-safe routes, voice search). These sit right after the home tab.
-- `tier: "analysis"` — one-off deep dives (data gaps, gap prediction, resource
-  optimisation, GeoVision satellite detection, survey planning, GIS agent chat).
-  They follow after a `·` separator and a `Phân tích` label.
-- Adding a tool: give it a tier in `components/map/tools/registry.tsx`;
-  `components/map/tools/types.ts` declares the field; `app/map/page.tsx` renders
-  both groups — no per-tool branch in the page.
-- The `home` inline tool (the "Bản đồ" tab) is `tier: "core"` and carries the
-  field so it satisfies the `MapTool` type.
-- This is a presentation change only. No API route, ai-service endpoint or
-  crawler was touched; `/tmp/audit_final.py` still reports `ghosts_be=0`,
-  `ghosts_ai=0`.
-
-**Split:** `components/map/tools/registry.tsx` có 9 công cụ = 3 `core` + 6 `analysis`;
-thêm công cụ ẩn `home`inline (cũng `core`) nên dải tab trên bản đồ đọc là
-4 cơ bản · 6 phân tích.
-
-- core (3 trong registry): `wifi`, `green`, `climate`
-- analysis (6): `data-hunter`, `gap-predictor`, `resource-optimizer`, `geo-vision`,
-  `survey-planner`, `ai-agent`
-- `home`inline là tab "Bản đồ chính", `tier: "core"`, đứng đầu dải tab
+- **Registry (`components/map/tools/registry.tsx`):** `VISIBLE_TOOL_META` (8:
+  `climate`, `wifi`, `green`, `learning-space`, `stem`, `summer`, `donate`,
+  `market`) + `ARCHIVED_TOOL_META` (5: `data-hunter`, `gap-predictor`,
+  `resource-optimizer`, `geo-vision`, `survey-planner`). `MAP_TOOLS` /
+  `MAP_TOOL_BY_ID` chỉ dựng từ visible. Export thêm `ARCHIVED_MAP_TOOLS`,
+  `ARCHIVED_TOOL_IDS`, `isArchivedTool`, `getMapTool`.
+- **URL:** `?tool=<archived>` rơi về Tổng quan và param bị xoá
+  (`history.replaceState`, không thêm history entry); `?tool=<visible>` mở tool
+  và bật lớp ghim tương ứng. `next.config.js` redirect
+  `/map/{5 archived}` → `/map` (`permanent: false`).
+- **Một nguồn trạng thái lớp ghim:** `enabledLayers: Set<string>` trong
+  `app/map/page.tsx` (`toggleLayer` / `enableLayer` / `isLayerOn`). Mặc định
+  `poi,wifi,green,stem,summer,donate,market` (khí hậu + nơi học tắt để tránh
+  request nặng lúc mở trang).
+  - `visiblePinCategories` = `enabledLayers` ∩ 6 category featured (`useMemo`,
+    một chiều); `hiddenPinCategories` = phần bù — cả hai đều suy ra từ set, không
+    có state thứ hai, không vòng lặp render.
+  - Card **"Lớp ghim"** ở Tổng quan (checkbox · icon · nhãn · số đếm, 9 dòng),
+    chú giải ghim và tab tool cùng đọc/ghi set này. Dòng POI có 2 chip
+    "Cụm ghim" / "Lớp nhiệt" thay công tắc `showHeatmap` cũ ở rail.
+- **Nguồn vẽ ghim:** 6 category featured vẽ bằng `FeaturedPinsLayer`
+  (`/api/map/featured-pins`, 1 request); `climate` + `learning-space` vẽ bằng
+  panel ẩn (`<div className="hidden">`) mount khi layer bật và tab không mở —
+  panel tự skip khi `result !== null`, không sinh request lặp.
+  `overlayNode` chỉ render overlay của `PIN_LAYER_IDS` (climate,
+  learning-space). `/map` mở mặc định chỉ 2 request: POI + featured-pins.
+- **Khí hậu có ghim:** `ClimateGuardianOverlay` vẽ
+  `risk_ranking.slice(0, 15)` marker hazard kèm `%`
+  (`createPinIcon("hazard", { type: "amount", value: "<pct>%" })`); Popup có
+  ngập/thời tiết/tiếp cận/độ cao/lý do. Chip amber "Chưa lấy được độ cao địa
+  hình (Open-Meteo)" khi `metadata.degraded` + mọi cell `elevation_m === null`
+  (Render free tier không tới được Open-Meteo — trạng thái degraded là thật).
+- **Lớp nhiệt không giết ghim:** `MapComponent` bỏ điều kiện `!showHeatmap`
+  trước `FeaturedPinsLayer`; `FeaturedPinsLayer` lọc theo
+  `hiddenCategories` (phần bù của `enabledLayers`) thay vì
+  `visibleCategories.size > 0` — set rỗng giờ nghĩa là không vẽ ghim nào.
+- **Archived ≠ xoá:** muốn bật lại, chuyển entry từ `ARCHIVED_TOOL_META` sang
+  `VISIBLE_TOOL_META`, thêm lại `dynamic()` Panel/Overlay + khoá `TOOL_PARTS`,
+  thêm `Feature` vào catalog với `href: "/map?tool=<id>"`, xoá redirect.
+  Chi tiết: `tasks/map-layers-todo.md` → "Bật lại 5 tool".
+- Không đụng backend/ai-service/BFF/API surface (§20). Kiểm chứng: `tsc
+  --noEmit` (node_modules tham chiếu từ `base-pristine` + `naifarm`, lọc lỗi
+  môi trường) 0 lỗi thật; `balance.py` / `unused.py` / `resolve_imports.py` /
+  `scan.py` / `trace_map_graph.py` / `check_nav.py` sạch. Runtime truth = host
+  sau khi người dùng deploy.
 
 ## 23. CI build errors fixed from the consolidation run (2026-11-18)
 
@@ -2414,7 +2436,7 @@ trang hub và truy cập qua `HubTabBar`:
 | Hub | Landing | Tính năng con |
 |---|---|---|
 | Bảng điều khiển (`personal`) | `/dashboard` | `features` (`/features`) |
-| Bản đồ (`map`) | `/map` | 14 tool trong panel map: green, summer, wifi, stem, learning-space, ai-agent, donate, market, data-hunter, gap-predictor, resource-optimizer, geo-vision, survey-planner, climate |
+| Bản đồ (`map`) | `/map` | 8 tool hiển thị trong panel map (xem §22): climate, wifi, green, learning-space, stem, summer, donate, market |
 | Học tập (`learn`) | `/learn` | scholarships, intl, library |
 | Hướng nghiệp (`career`) | `/career` | career-jobs, career-roadmap, career-predictive, internships, opportunities, opportunity-radar, analytics |
 | Cộng đồng (`community`) | `/community` | mentor, events, hackathon, leaderboard, hs-connection, volunteer, surveys |
@@ -2423,7 +2445,7 @@ trang hub và truy cập qua `HubTabBar`:
 
 - `src/lib/feature-catalog.ts` vẫn là nguồn duy nhất: `FeatureGroupId` = 7 hub,
   `featuresForGroup(id)` (hub trước, con sau) nuôi `HubTabBar`, `groupById(id)`
-  nuôi landing. `/features` tự ăn theo, đủ 46 tính năng.
+  nuôi landing. `/features` tự ăn theo (tại 2026-11-24 là 46; hiện 37 sau khi 5 tool Phân tích archived — xem §22).
 - **Mỗi tính năng chỉ thuộc một hub.** Mọi công cụ bản đồ (kể cả `stem`,
   `learning-space`, `ai-agent`, `donate`, `marketplace`) nằm trong nhóm `map`;
   `learn`/`ai`/`contribute` không còn mục nào trỏ `/map?tool=...`.
@@ -2443,7 +2465,7 @@ trang hub và truy cập qua `HubTabBar`:
   `AppLayout` bỏ `pathname === '/'` khỏi `isFullScreen`; link thương hiệu
   (`Sidebar`, `AppLayout`, `app/admin/layout.tsx`, `app/error.tsx`) đổi `/` → `/map`;
   `public/manifest.json` `start_url` → `/map`.
-- Kiểm chứng local: `check_nav.py` (7 hub, 46 tính năng, mọi href có trang/tool) →
+- Kiểm chứng local: `check_nav.py` (7 hub, 46 tính năng lúc đó — hiện 37, xem §29, mọi href có trang/tool) →
   OK; cân bằng ngoặc toàn bộ file sửa → OK. `node_modules` không có nên không chạy
   `tsc`; runtime truth = host sau khi deploy.
 
@@ -2453,9 +2475,9 @@ trang hub và truy cập qua `HubTabBar`:
 `/map?tool=stem`). Đã xử lý:
 
 - **Công cụ bản đồ chỉ thuộc hub Bản đồ.** `learn` mất `stem`, `learning-spaces`;
-  `ai` mất `ai-agent`; `contribute` mất `donate`, `marketplace`. Cả 14 tool
-  (`core` + `analysis`) đều có mục trong catalog nhóm `map`, nên chúng hiện trên
-  `/features` và chỉ mở từ panel `/map`.
+  `ai` mất `ai-agent`; `contribute` mất `donate`, `marketplace`. 8 tool hiển thị
+  (xem §22; 5 tool "Phân tích" đã archived khỏi UI, giữ code + API) có mục trong
+  catalog nhóm `map`, nên chúng hiện trên `/features` và chỉ mở từ panel `/map`.
 - **`impact-measurement`** đổi href `/dashboard/impact` → `/impact`; trang được
   `git mv` sang `app/impact/page.tsx`, giữ `HubTabBar hubId="contribute"`.
 - **Bỏ `FeatureQuickNav`** (`components/dashboard/FeatureQuickNav.tsx`): nó render
@@ -2503,8 +2525,16 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   Hub đang mở suy ra bằng `groupForPath(pathname)`. Mobile (≤640px) mặc định thu
   gọn; khi mở là popover dọc (7 hub + `/features` + giao diện + avatar/đăng nhập +
   đăng xuất), mở ở góc dưới-trái để tránh rail `MapMenu`, tự đóng khi đổi trang.
-  `right-[4.75rem]` để không chồng rail `MapMenu`. Dock tự thu gọn mỗi khi vào
+  FAB thu gọn `bottom-3 left-3` (trước 2026-11-25 là `right-[4.75rem]`). Dock tự thu gọn mỗi khi vào
   trang `/map` (mọi pathname bắt đầu `/map`).
+- **Dock trên `/map` chuyển sang dưới-trái (2026-11-25):** FAB thu gọn
+  `bottom-5 left-5`; dock mở rộng `left-5` (không còn giữa màn hình) với
+  `maxWidth: calc(100vw - var(--edumap-map-panel-w, 4.5rem) - 2.5rem)` nên không
+  bao giờ đè lên panel Map Hub (rail 56px + panel 300–640px) — `overflow-x-auto`
+  của `Dock` lo phần cuộn khi hẹp. `MapMenu` ghi biến
+  `--edumap-map-panel-w` = `open ? panelSize.width + 56 : 56` px lên
+  `document.documentElement` và xoá trong cleanup. Trang khác giữ `left-1/2
+  -translate-x-1/2` như cũ; mobile popover vẫn góc dưới-trái.
 - **Avatar → `DashboardDrawer` (`components/dashboard/DashboardDrawer.tsx`):**
   drawer trượt phải `w-[min(480px,100vw)]`, không lớp phủ tối, đóng bằng nút/Esc
   hoặc click nền trong suốt; nội dung dùng chung
@@ -2520,9 +2550,11 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   cho dock. `HubLanding.tsx` và trang `/learn`, `/ai`, `/contribute` bị xoá;
   `next.config.js` redirect `/learn`→`/scholarships`, `/ai`→`/ai-chat`,
   `/contribute`→`/impact-match`; `app/sitemap.ts` cập nhật.
-- **Tool bản đồ:** bỏ `ai-agent` (`AiAgentTool.tsx`, entry registry + catalog,
-  `next.config.js` `/ai-agent`→`/map`) → còn **13** tool; giữ cả
-  `data-hunter`/`gap-predictor`. Viết lại `ResourceOptimizerTool.tsx` (MCLP: input
+- **Tool bản đồ (cập nhật 2026-11-25):** bỏ `ai-agent` (`AiAgentTool.tsx`, entry
+  registry + catalog, `next.config.js` `/ai-agent`→`/map`) và archive thêm 5
+  tool "Phân tích" (`data-hunter`, `gap-predictor`, `resource-optimizer`,
+  `geo-vision`, `survey-planner` — giữ code + API, rời UI, xem §22) → panel
+  còn **8 tool hiển thị**. Viết lại `ResourceOptimizerTool.tsx` (MCLP: input
   ngân sách/bán kính phủ/bán kính vùng, gửi `coverage_radius_km`/
   `region_radius_km`/`center_*`, so sánh kế hoạch A/B/C = 40/70/100% ngân sách,
   bỏ khối trọng số sai, sửa typo "giáo dụng"/"tối đa hoá đi coverage").
@@ -2530,7 +2562,8 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   rỗng. `MapMenu` panel co dãn bằng `useResizable({handleEdge:"left"})`
   (min 300 / max 640), mặc định 380px.
 - Không đụng backend/BFF/API surface (§20). Kiểm chứng local (`node_modules`
-  không có nên không `tsc`): `check_nav.py` (7 hub, 42 tính năng, 13 tool, mỗi
-  hubHref có đúng 1 entry, landing cũ đã xoá) OK; `balance.py`/`unused.py`/
-  `resolve_imports.py` sạch cho mọi file sửa; `trace_map_graph.py` 0 leak
-  leaflet. Runtime truth = host sau khi người dùng deploy.
+  không có nên không `tsc`): `check_nav.py` (7 hub, 37 tính năng, 8 tool hiển
+  thị + 5 archived, mỗi hubHref có đúng 1 entry, landing cũ đã xoá) OK;
+  `balance.py`/`unused.py`/`resolve_imports.py` sạch cho mọi file sửa;
+  `trace_map_graph.py` 0 leak leaflet. Runtime truth = host sau khi người dùng
+  deploy.

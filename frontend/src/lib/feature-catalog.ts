@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Atom, Banknote, BarChart3, BookMarked, BookOpen, BrainCircuit, Briefcase, Building2, Calendar, Camera, ClipboardList, CloudOff, CloudRain, Compass, Flame, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
+import { Atom, BarChart3, BookMarked, BookOpen, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, CloudRain, Compass, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
 export type FeatureGroupId = "personal" | "map" | "learn" | "career" | "community" | "ai" | "contribute";
 export type IconComponent = ComponentType<{
     className?: string;
@@ -97,7 +97,7 @@ export const FEATURES: Feature[] = [
         icon: Map,
         description: "Bản đồ giáo dục tương tác kèm công cụ phân tích và tiện ích tại chỗ.",
         group: "map",
-        keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "wifi", "green"],
+        keywords: ["bản đồ", "map", "gis", "poi", "climate", "wifi", "green", "stem", "nhà trường"],
     },
     {
         id: "green",
@@ -161,51 +161,6 @@ export const FEATURES: Feature[] = [
         description: "Mua bán, trao đổi sách và thiết bị học tập.",
         group: "map",
         keywords: ["chợ", "marketplace", "sách", "thiết bị"],
-    },
-    {
-        id: "data-hunter",
-        label: "Truy đuổi dữ liệu",
-        href: "/map?tool=data-hunter",
-        icon: Target,
-        description: "Tìm khoảng trống giáo dục bằng phân tích lưới ô dữ liệu.",
-        group: "map",
-        keywords: ["data hunter", "khoảng trống", "lưới ô", "gap"],
-    },
-    {
-        id: "gap-predictor",
-        label: "Dự báo khoảng trống",
-        href: "/map?tool=gap-predictor",
-        icon: Flame,
-        description: "Dự báo vùng thiếu giáo dục trong tương lai bằng mô hình AI.",
-        group: "map",
-        keywords: ["dự báo", "khoảng trống", "gap", "predict"],
-    },
-    {
-        id: "resource-optimizer",
-        label: "Tối ưu nguồn lực",
-        href: "/map?tool=resource-optimizer",
-        icon: Banknote,
-        description: "Đề xuất phân bổ cơ sở giáo dục để phủ nhiều người học nhất trong ngân sách.",
-        group: "map",
-        keywords: ["tối ưu", "nguồn lực", "đầu tư", "mclp"],
-    },
-    {
-        id: "geo-vision",
-        label: "GeoVision AI",
-        href: "/map?tool=geo-vision",
-        icon: Camera,
-        description: "Phát hiện cơ sở giáo dục mới từ ảnh vệ tinh qua AI.",
-        group: "map",
-        keywords: ["vệ tinh", "ảnh", "geo", "vision"],
-    },
-    {
-        id: "survey-planner",
-        label: "Kế hoạch khảo sát",
-        href: "/map?tool=survey-planner",
-        icon: Target,
-        description: "Lên lộ trình khảo sát hiệu quả nhất cho đội ngũ thực địa.",
-        group: "map",
-        keywords: ["khảo sát", "thực địa", "survey"],
     },
     {
         id: "climate",

@@ -1,13 +1,14 @@
 "use client";
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { CloudRain, MapPin, BarChart3, RefreshCw, AlertCircle, Info, ExternalLink, CheckCircle2, ChevronLeft, } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { CloudRain, MapPin, RefreshCw, AlertCircle, Info, CheckCircle2, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
-import { GeoJSON, Marker, Popup, Circle, useMap, } from "react-leaflet";
+import { GeoJSON, Marker, Popup, Tooltip, useMap, } from "react-leaflet";
 import L from "leaflet";
 import HeatmapLayer from "@/components/map/HeatmapLayer";
+import { createPinIcon } from "../PinTheme";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 const DEFAULT_CENTER = { lat: 10.9525, lng: 106.8778 };
 const DEFAULT_BBOX = { minLat: 10.75, maxLat: 11.20, minLng: 106.60, maxLng: 107.20 };
@@ -103,16 +104,18 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
         }
     }, [altCenter, altRadius, altCategory, active, onResult]);
     useEffect(() => {
-        if (active)
+        if (active && !result)
             fetchRisk();
     }, [bbox, dateStr, active]);
-    useEffect(() => {
-        if (active)
-            fetchAlternatives();
-    }, [altCenter, altRadius, altCategory, active]);
     const riskResult = result || null;
     const meta = useMemo(() => riskResult?.metadata || {}, [riskResult]);
     const riskRanking = useMemo(() => riskResult?.risk_ranking || [], [riskResult]);
+    const missingElevation = useMemo(() => {
+        const cells = riskResult?.features || [];
+        if (!cells.length)
+            return false;
+        return cells.every((f: any) => (f.properties?.elevation_m ?? null) === null);
+    }, [riskResult]);
     const safeAlts = useMemo(() => (altResult?.features || []), [altResult]);
     return (<div className="space-y-4">
       <p className="text-xs text-muted-foreground">
@@ -149,6 +152,16 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
       {meta.degraded && (<div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5"/>
           <span>{meta.reason || "Dữ liệu khí hậu đang trong chế độ giảm tốc — kết quả chỉ mang tính tham khảo."}</span>
+        </div>)}
+
+      {missingElevation && (<div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5"/>
+          <span>Chưa lấy được độ cao địa hình (Open-Meteo). Điểm rủi ro chỉ tính ngập và tiếp cận.</span>
+        </div>)}
+
+      {riskRanking.length === 0 && riskResult && (<div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border text-xs text-muted-foreground">
+          <Info className="w-4 h-4 shrink-0 mt-0.5"/>
+          <span>Chưa có ô rủi ro nổi bật trong vùng này.</span>
         </div>)}
 
       {riskResult && (<div className="p-3 rounded-lg bg-muted/20 border border-border">
@@ -249,6 +262,7 @@ function ClimateGuardianOverlayMap({ result, points }: {
     const data = useMemo(() => result || null, [result]);
     const alternatives = useMemo(() => result?.alternatives || null, [result]);
     const heatPoints = useMemo(() => data?.heat_points || [], [data]);
+    const riskRanking = useMemo(() => data?.risk_ranking || [], [data]);
     const fitPoints = useMemo(() => {
         const pts: {
             lat: number;
@@ -331,6 +345,49 @@ function ClimateGuardianOverlayMap({ result, points }: {
             }}/>) : null}
 
       
+      {riskRanking.slice(0, 15).map((r: any, idx: number) => {
+            const lat = Number(r.lat);
+            const lng = Number(r.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
+                return null;
+            const pct = Number.isFinite(Number(r.risk_score_pct))
+                ? Math.round(Number(r.risk_score_pct))
+                : Math.round(Number(r.risk_score || 0) * 100);
+            const icon = createPinIcon("hazard", { type: "amount", value: `${pct}%` });
+            return (<Marker key={`climate-pin-${lat}:${lng}:${idx}`} position={[lat, lng]} icon={icon}>
+              <Tooltip direction="top" offset={[0, -30]} opacity={1} className="climate-tooltip">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <CloudRain className="w-3 h-3 text-destructive"/>
+                  <span>{r.nearest_facility || r.area || "Vùng rủi ro"}</span>
+                  <span className="font-bold text-destructive">• {pct}%</span>
+                </div>
+              </Tooltip>
+              <Popup>
+                <div className="max-w-xs space-y-1 font-sans text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-sm text-foreground">
+                      {r.nearest_facility || r.area || "Vùng rủi ro"}
+                    </strong>
+                    <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: riskLabelColor(r.risk_score || 0) + "22", color: riskLabelColor(r.risk_score || 0) }}>
+                      {formatPct(pct)} · {r.risk_level || "rất thấp"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground/80">
+                    <span>Ngập: {formatPct((r.flood_risk || 0) * 100)}</span>
+                    <span>Thời tiết: {formatPct((r.weather_risk || 0) * 100)}</span>
+                    <span>Tiếp cận: {formatPct((r.access_risk || 0) * 100)}</span>
+                  </div>
+                  {r.elevation_m !== null && r.elevation_m !== undefined && (<span className="block text-[10px] text-muted-foreground/70">
+                      Độ cao: {r.elevation_m} m
+                    </span>)}
+                  {r.reason && (<p className="border-t border-border/70 pt-1 text-[11px] leading-snug text-muted-foreground/80">
+                      {r.reason}
+                    </p>)}
+                </div>
+              </Popup>
+            </Marker>);
+        })}
+
       {alternatives?.features?.length > 0 ? ((alternatives.features as any[]).map((f: any, idx: number) => {
             const coords = f.geometry?.coordinates;
             if (!coords || typeof coords[1] !== "number")

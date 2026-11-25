@@ -1,63 +1,9 @@
 "use client";
 import type { MapTool } from "./types";
 import dynamic from "next/dynamic";
-import { Target, Flame, Banknote, Camera, CloudRain, Wifi, Leaf, BookOpen, Atom, Sun, Heart, ShoppingCart, } from "lucide-react";
-const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
-    {
-        id: "data-hunter",
-        label: "Truy đuổi dữ liệu",
-        longLabel: "Truy đuổi dữ liệu",
-        icon: Target,
-        description: "Tìm khoảng trống giáo dục bằng phân tích lưới ô dữ liệu.",
-        longDescription: "Phân tích lưới ô để tìm khu vực chưa có cơ sở giáo dục.",
-        authRequired: true,
-        hideBaseLayers: true,
-        tier: "analysis",
-    },
-    {
-        id: "gap-predictor",
-        label: "Dự báo khoảng trống",
-        longLabel: "Dự báo khoảng trống",
-        icon: Flame,
-        description: "Dự báo vùng thiếu giáo dục trong tương lai bằng mô hình AI.",
-        longDescription: "Sử dụng mô hình dự báo của ai-service để dự báo khu vực thiếu giáo dục.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "analysis",
-    },
-    {
-        id: "resource-optimizer",
-        label: "Tối ưu nguồn lực",
-        longLabel: "Tối ưu nguồn lực",
-        icon: Banknote,
-        description: "Đề xuất phân bổ nguồn lực để khai thác hiệu quả các cơ sở giáo dục.",
-        longDescription: "Tính toán kế hoạch đầu tư tối ưu dựa trên ngân sách và nhu cầu thực tế.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "analysis",
-    },
-    {
-        id: "geo-vision",
-        label: "GeoVision AI",
-        longLabel: "GeoVision AI",
-        icon: Camera,
-        description: "Phát hiện cơ sở giáo dục mới từ ảnh vệ tinh qua AI.",
-        longDescription: "Dò tìm trường học/cơ sở học tập chưa được đưa vào bản đồ bằng AI nhận dạng ảnh vệ tinh.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "analysis",
-    },
-    {
-        id: "survey-planner",
-        label: "Kế hoạch khảo sát",
-        longLabel: "Kế hoạch khảo sát",
-        icon: Target,
-        description: "Lên lộ trình khảo sát hiệu quả nhất cho đội ngũ thực địa.",
-        longDescription: "Tính toán điểm khảo sát tiếp cận thông tin mới nhất dựa trên thời gian và khoảng cách.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "analysis",
-    },
+import { CloudRain, Wifi, Leaf, BookOpen, Atom, Sun, Heart, ShoppingCart, Target, Flame, Banknote, Camera, } from "lucide-react";
+
+const VISIBLE_TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
     {
         id: "climate",
         label: "Bảo vệ khí hậu",
@@ -147,11 +93,65 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         tier: "core",
     },
 ];
-const DataHunterPanel = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterPanel), { ssr: false });
-const GapPredictorPanel = dynamic(() => import("./GapPredictorTool").then((m) => m.GapPredictorPanel), { ssr: false });
-const ResourceOptimizerPanel = dynamic(() => import("./ResourceOptimizerTool").then((m) => m.ResourceOptimizerPanel), { ssr: false });
-const GeoVisionPanel = dynamic(() => import("./GeoVisionTool").then((m) => m.GeoVisionPanel), { ssr: false });
-const SurveyPlannerPanel = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerPanel), { ssr: false });
+
+export const ARCHIVED_TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
+    {
+        id: "data-hunter",
+        label: "Truy đuổi dữ liệu",
+        longLabel: "Truy đuổi dữ liệu",
+        icon: Target,
+        description: "Tìm khoảng trống giáo dục bằng phân tích lưới ô dữ liệu.",
+        longDescription: "Phân tích lưới ô để tìm khu vực chưa có cơ sở giáo dục.",
+        authRequired: true,
+        hideBaseLayers: true,
+        tier: "analysis",
+    },
+    {
+        id: "gap-predictor",
+        label: "Dự báo khoảng trống",
+        longLabel: "Dự báo khoảng trống",
+        icon: Flame,
+        description: "Dự báo vùng thiếu giáo dục trong tương lai bằng mô hình AI.",
+        longDescription: "Sử dụng mô hình dự báo của ai-service để dự báo khu vực thiếu giáo dục.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+    {
+        id: "resource-optimizer",
+        label: "Tối ưu nguồn lực",
+        longLabel: "Tối ưu nguồn lực",
+        icon: Banknote,
+        description: "Đề xuất phân bổ nguồn lực để khai thác hiệu quả các cơ sở giáo dục.",
+        longDescription: "Tính toán kế hoạch đầu tư tối ưu dựa trên ngân sách và nhu cầu thực tế.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+    {
+        id: "geo-vision",
+        label: "GeoVision AI",
+        longLabel: "GeoVision AI",
+        icon: Camera,
+        description: "Phát hiện cơ sở giáo dục mới từ ảnh vệ tinh qua AI.",
+        longDescription: "Dò tìm trường học/cơ sở học tập chưa được đưa vào bản đồ bằng AI nhận dạng ảnh vệ tinh.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+    {
+        id: "survey-planner",
+        label: "Kế hoạch khảo sát",
+        longLabel: "Kế hoạch khảo sát",
+        icon: Target,
+        description: "Lên lộ trình khảo sát hiệu quả nhất cho đội ngũ thực địa.",
+        longDescription: "Tính toán điểm khảo sát tiếp cận thông tin mới nhất dựa trên thời gian và khoảng cách.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+];
+
 const ClimateGuardianPanel = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianPanel), { ssr: false });
 const WifiPanel = dynamic(() => import("./WifiTool").then((m) => m.WifiPanel), { ssr: false });
 const GreenPanel = dynamic(() => import("./GreenTool").then((m) => m.GreenPanel), { ssr: false });
@@ -160,11 +160,6 @@ const StemPanel = dynamic(() => import("./StemTool").then((m) => m.StemPanel), {
 const SummerPanel = dynamic(() => import("./SummerTool").then((m) => m.SummerPanel), { ssr: false });
 const DonatePanel = dynamic(() => import("./DonateTool").then((m) => m.DonatePanel), { ssr: false });
 const MarketPanel = dynamic(() => import("./MarketTool").then((m) => m.MarketPanel), { ssr: false });
-const DataHunterOverlay = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterOverlay), { ssr: false });
-const GapPredictorOverlay = dynamic(() => import("./GapPredictorTool").then((m) => m.GapPredictorOverlay), { ssr: false });
-const ResourceOptimizerOverlay = dynamic(() => import("./ResourceOptimizerTool").then((m) => m.ResourceOptimizerOverlay), { ssr: false });
-const GeoVisionOverlay = dynamic(() => import("./GeoVisionTool").then((m) => m.GeoVisionOverlay), { ssr: false });
-const SurveyPlannerOverlay = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerOverlay), { ssr: false });
 const ClimateGuardianOverlay = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianOverlay), { ssr: false });
 const WifiOverlay = dynamic(() => import("./WifiTool").then((m) => m.WifiOverlay), { ssr: false });
 const GreenOverlay = dynamic(() => import("./GreenTool").then((m) => m.GreenOverlay), { ssr: false });
@@ -173,12 +168,8 @@ const StemOverlay = dynamic(() => import("./StemTool").then((m) => m.StemOverlay
 const SummerOverlay = dynamic(() => import("./SummerTool").then((m) => m.SummerOverlay), { ssr: false });
 const DonateOverlay = dynamic(() => import("./DonateTool").then((m) => m.DonateOverlay), { ssr: false });
 const MarketOverlay = dynamic(() => import("./MarketTool").then((m) => m.MarketOverlay), { ssr: false });
+
 const TOOL_PARTS: Record<string, Pick<MapTool, "Panel" | "Overlay">> = {
-    "data-hunter": { Panel: DataHunterPanel, Overlay: DataHunterOverlay },
-    "gap-predictor": { Panel: GapPredictorPanel, Overlay: GapPredictorOverlay },
-    "resource-optimizer": { Panel: ResourceOptimizerPanel, Overlay: ResourceOptimizerOverlay },
-    "geo-vision": { Panel: GeoVisionPanel, Overlay: GeoVisionOverlay },
-    "survey-planner": { Panel: SurveyPlannerPanel, Overlay: SurveyPlannerOverlay },
     "climate": { Panel: ClimateGuardianPanel, Overlay: ClimateGuardianOverlay },
     "wifi": { Panel: WifiPanel, Overlay: WifiOverlay },
     "green": { Panel: GreenPanel, Overlay: GreenOverlay },
@@ -188,8 +179,16 @@ const TOOL_PARTS: Record<string, Pick<MapTool, "Panel" | "Overlay">> = {
     "donate": { Panel: DonatePanel, Overlay: DonateOverlay },
     "market": { Panel: MarketPanel, Overlay: MarketOverlay },
 };
-export const MAP_TOOLS: MapTool[] = TOOL_META.map((meta) => ({ ...meta, ...TOOL_PARTS[meta.id] }));
+
+export const MAP_TOOLS: MapTool[] = VISIBLE_TOOL_META.map((meta) => ({ ...meta, ...TOOL_PARTS[meta.id] }));
 export const MAP_TOOL_BY_ID: Record<string, MapTool> = Object.fromEntries(MAP_TOOLS.map((t) => [t.id, t]));
+export const ARCHIVED_MAP_TOOLS: Omit<MapTool, "Panel" | "Overlay">[] = ARCHIVED_TOOL_META;
+export const ARCHIVED_TOOL_IDS: string[] = ARCHIVED_TOOL_META.map((t) => t.id);
+export function isArchivedTool(id: string | null): boolean {
+    if (!id)
+        return false;
+    return ARCHIVED_TOOL_IDS.includes(id);
+}
 export function getMapTool(id: string | null): MapTool | undefined {
     if (!id)
         return undefined;

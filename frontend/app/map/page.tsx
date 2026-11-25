@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import MapMenu, { type MapMenuItem } from "@/components/map/MapMenu";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, AlertCircle, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, } from "lucide-react";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, AlertCircle, Layers, Save, Info, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Mic, MicOff, Navigation, Home as HomeIcon, Sun, Heart, ShoppingCart, CloudRain, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 import { FeaturedPinCard } from "@/components/map/FeaturedPinCard";
-import { PIN_LEGEND } from "@/components/map/pin-themes";
+import { PIN_LEGEND, getPinTheme } from "@/components/map/pin-themes";
 const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
     ssr: false,
     loading: () => (<div className="h-full w-full flex items-center justify-center bg-background">
@@ -67,6 +67,38 @@ const DEFAULT_CENTER: [
     number,
     number
 ] = [10.957, 106.843];
+const FEATURED_LAYER_IDS = ["wifi", "green", "stem", "summer", "donate", "market"];
+const PIN_LAYER_IDS = ["climate", "learning-space"];
+const LAYER_ICONS: Record<string, {
+    Icon: React.ComponentType<{
+        className?: string;
+    }>;
+    color: string;
+}> = {
+    poi: { Icon: GraduationCap, color: "text-accent" },
+    wifi: { Icon: Wifi, color: "text-amber-400" },
+    green: { Icon: Leaf, color: "text-green-600" },
+    stem: { Icon: Atom, color: "text-destructive" },
+    summer: { Icon: Sun, color: "text-orange-500" },
+    donate: { Icon: Heart, color: "text-red-500" },
+    market: { Icon: ShoppingCart, color: "text-primary" },
+    "learning-space": { Icon: BookOpen, color: "text-accent" },
+    climate: { Icon: CloudRain, color: "text-destructive" },
+};
+const LAYER_OPTIONS: Array<{
+    id: string;
+    label: string;
+}> = [
+    { id: "poi", label: "Cơ sở giáo dục" },
+    { id: "wifi", label: "Trạm Wifi" },
+    { id: "green", label: "Thử thách xanh" },
+    { id: "stem", label: "Phòng Lab STEM" },
+    { id: "summer", label: "Chiến dịch mùa hè" },
+    { id: "donate", label: "Quyên góp" },
+    { id: "market", label: "Chợ chia sẻ" },
+    { id: "learning-space", label: "Nơi học (AI)" },
+    { id: "climate", label: "Rủi ro khí hậu" },
+];
 function SearchBar({ value, onChange }: {
     value: string;
     onChange: (v: string) => void;
@@ -177,12 +209,12 @@ function ToolTab({ tool, isActive, onClick, count, }: {
 }) {
     const Icon = tool.icon;
     const showCount = count && count > 0 && !isActive;
-    return (<button onClick={onClick} title={tool.longDescription} className={`group relative flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left text-[11px] font-medium transition-all ${isActive
+    return (<button onClick={onClick} title={tool.longDescription} className={`group relative flex w-full flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-center text-[10px] font-medium leading-tight transition-all ${isActive
             ? "border-primary/40 bg-primary/15 text-primary shadow-sm"
             : "border-border/60 bg-background/40 text-muted-foreground hover:border-primary/30 hover:bg-muted/40 hover:text-foreground"}`}>
       <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground"}`}/>
-      <span className="min-w-0 flex-1 truncate">{tool.label}</span>
-      {showCount && (<span className="flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[8px] font-bold text-destructive-foreground">
+      <span className="w-full break-words line-clamp-2">{tool.label}</span>
+      {showCount && (<span className="absolute right-1 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[8px] font-bold text-destructive-foreground">
           {count}
         </span>)}
     </button>);
@@ -190,16 +222,6 @@ function ToolTab({ tool, isActive, onClick, count, }: {
 function getResultCount(toolId: string, result: any): number | undefined {
     if (!result)
         return undefined;
-    if (toolId === "data-hunter")
-        return result?.summary?.gap_cells;
-    if (toolId === "gap-predictor")
-        return result?.risk_ranking?.length;
-    if (toolId === "resource-optimizer")
-        return result?.features?.length;
-    if (toolId === "geo-vision")
-        return result?.detections?.length;
-    if (toolId === "survey-planner")
-        return result?.features?.length;
     if (toolId === "climate")
         return result?.risk_ranking?.length;
     if (Array.isArray(result))
@@ -213,6 +235,27 @@ export default function MapPage() {
     const [toolResults, setToolResults] = useState<Record<string, any>>({});
     const [toolLoading, setToolLoading] = useState<Record<string, boolean>>({});
     const [toolError, setToolError] = useState<Record<string, string | null>>({});
+    const [enabledLayers, setEnabledLayers] = useState<Set<string>>(new Set(["poi", "wifi", "green", "stem", "summer", "donate", "market"]));
+    const [showPinLegend, setShowPinLegend] = useState(false);
+    const toggleLayer = useCallback((id: string) => {
+        setEnabledLayers((prev) => {
+            const next = new Set(prev);
+            if (next.has(id))
+                next.delete(id);
+            else
+                next.add(id);
+            return next;
+        });
+    }, []);
+    const enableLayer = useCallback((id: string) => {
+        setEnabledLayers((prev) => {
+            if (prev.has(id))
+                return prev;
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+        });
+    }, []);
     const menuBodyRef = useRef<HTMLDivElement>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [menuTab, setMenuTab] = useState<"map" | "directions">("map");
@@ -230,6 +273,21 @@ export default function MapPage() {
                 setActiveTool(toolParam);
                 setMenuTab("map");
                 setMenuOpen(true);
+                setEnabledLayers((prev) => {
+                    if (prev.has(toolParam))
+                        return prev;
+                    const next = new Set(prev);
+                    next.add(toolParam);
+                    return next;
+                });
+            }
+            else if (toolParam) {
+                setActiveTool("home");
+                setMenuTab("map");
+                setMenuOpen(true);
+                const nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.delete("tool");
+                window.history.replaceState({}, "", nextUrl);
             }
         }
     }, []);
@@ -245,6 +303,8 @@ export default function MapPage() {
     }, [activeTool]);
     const handleToolChange = (toolId: string) => {
         setActiveTool(toolId);
+        if (toolId !== "home")
+            enableLayer(toolId);
         if (typeof window !== "undefined") {
             const url = new URL(window.location.href);
             if (toolId === "home")
@@ -270,7 +330,10 @@ export default function MapPage() {
         setMenuOpen(true);
     }, []);
     const handleToolResult = useCallback((toolId: string, data: any) => {
-        setToolResults((prev) => ({ ...prev, [toolId]: data }));
+        setToolResults((prev) => ({
+            ...prev,
+            [toolId]: typeof data === "function" ? data(prev[toolId]) : data,
+        }));
     }, []);
     const handleToolLoading = useCallback((toolId: string, loading: boolean) => {
         setToolLoading((prev) => ({ ...prev, [toolId]: loading }));
@@ -302,19 +365,19 @@ export default function MapPage() {
     const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
     const [isSavingPin, setIsSavingPin] = useState(false);
     const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
-    const [showFeaturedPins, setShowFeaturedPins] = useState(true);
-    const [visiblePinCategories, setVisiblePinCategories] = useState<Set<string>>(new Set(["stem", "green", "summer", "wifi", "donate", "market"]));
-    const [showPinLegend, setShowPinLegend] = useState(false);
-    const togglePinCategory = (cat: string) => {
-        setVisiblePinCategories((prev) => {
-            const next = new Set(prev);
-            if (next.has(cat))
-                next.delete(cat);
-            else
-                next.add(cat);
-            return next;
+    const isLayerOn = (id: string) => enabledLayers.has(id);
+    const visiblePinCategories = useMemo(() => new Set(Array.from(enabledLayers).filter((id) => FEATURED_LAYER_IDS.includes(id))), [enabledLayers]);
+    const layerCounts = useMemo(() => {
+        const counts: Record<string, number | string> = {
+            poi: locations.length,
+            "learning-space": Array.isArray(toolResults["learning-space"]) ? toolResults["learning-space"].length : "—",
+            climate: toolResults?.climate?.risk_ranking?.length ?? "—",
+        };
+        FEATURED_LAYER_IDS.forEach((id) => {
+            counts[id] = featuredPins.filter((p) => p.category === id).length;
         });
-    };
+        return counts;
+    }, [locations, featuredPins, toolResults]);
     const [fs, setFs] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [voiceResults, setVoiceResults] = useState<any[]>([]);
@@ -675,19 +738,28 @@ export default function MapPage() {
     const showHomeControls = activeTool === "home";
     const activeToolDef = activeTool === "home" ? null : MAP_TOOL_BY_ID[activeTool];
     const hideBase = activeToolDef?.hideBaseLayers ?? false;
-    const overlayNode = activeToolDef
-        ? React.createElement(activeToolDef.Overlay, {
-            result: toolResults[activeTool],
-            viewport,
-            points: locations,
-            loading: toolLoading[activeTool],
-            onFeatureSelect: setSelectedLocation,
-        } as any)
-        : null;
+    const overlayNode = useMemo(() => {
+        const ids: string[] = PIN_LAYER_IDS.filter((layerId) => enabledLayers.has(layerId));
+        const nodes = ids.map((toolId) => {
+            const def = MAP_TOOL_BY_ID[toolId];
+            if (!def)
+                return null;
+            return React.createElement(def.Overlay, {
+                key: toolId,
+                result: toolResults[toolId] ?? null,
+                viewport,
+                points: locations,
+                loading: !!toolLoading[toolId],
+                onFeatureSelect: setSelectedLocation,
+            } as any);
+        }).filter(Boolean);
+        return nodes.length > 0 ? <>{nodes}</> : null;
+    }, [enabledLayers, toolResults, toolLoading, viewport, locations]);
+    const hiddenPinCategories = useMemo(() => new Set(FEATURED_LAYER_IDS.filter((id) => !enabledLayers.has(id))), [enabledLayers]);
     const toolPanelProps = activeToolDef
         ? {
             viewport,
-            result: toolResults[activeTool],
+            result: toolResults[activeTool] ?? null,
             onResult: (data: any) => handleToolResult(activeTool, data),
             loading: toolLoading[activeTool],
             setLoading: (l: boolean) => handleToolLoading(activeTool, l),
@@ -697,14 +769,23 @@ export default function MapPage() {
             user,
         } as any
         : null;
+    const layerPanelProps = (toolId: string) => ({
+        viewport,
+        result: toolResults[toolId] ?? null,
+        onResult: (data: any) => handleToolResult(toolId, data),
+        loading: !!toolLoading[toolId],
+        setLoading: (l: boolean) => handleToolLoading(toolId, l),
+        error: toolError[toolId] ?? null,
+        setError: (e: string | null) => handleToolError(toolId, e),
+        active: true,
+        user,
+    }) as any;
     const menuGroups: MapMenuItem[][] = [
         [
             { id: "map", label: "Bản đồ", icon: MapIcon, active: menuTab === "map", onClick: () => handleMenuTabChange("map") },
             { id: "directions", label: "Chỉ đường", icon: Navigation, active: menuTab === "directions", onClick: () => handleMenuTabChange("directions") },
         ],
         [
-            { id: "heatmap", label: showHeatmap ? "Tắt lớp nhiệt" : "Lớp nhiệt", icon: Flame, active: showHeatmap, onClick: () => setShowHeatmap(!showHeatmap) },
-            { id: "featured-pins", label: showFeaturedPins ? "Ẩn ghim đặc trưng" : "Hiện ghim đặc trưng", icon: Star, active: showFeaturedPins, onClick: () => setShowFeaturedPins(!showFeaturedPins) },
             { id: "pin-legend", label: showPinLegend ? "Đóng chú giải ghim" : "Chú giải ghim", icon: Layers, active: showPinLegend, onClick: () => setShowPinLegend(!showPinLegend) },
             { id: "ai", label: "Phân tích AI", icon: BrainCircuit, active: showAiPanel, onClick: () => {
                     handleToolChange("home");
@@ -727,7 +808,7 @@ export default function MapPage() {
     return (<div className="h-dvh w-full bg-background relative overflow-hidden">
       
       <main className="absolute inset-0 z-0">
-        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections} directionsTarget={directionsTarget} focusTarget={focusTarget}/>
+        <InteractiveMap points={hideBase || !isLayerOn("poi") ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={featuredPins} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} hiddenPinCategories={hiddenPinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections} directionsTarget={directionsTarget} focusTarget={focusTarget}/>
       </main>
 
       
@@ -735,7 +816,7 @@ export default function MapPage() {
         <div className="flex h-full flex-col">
           <div className={menuTab === "map" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
             <div className="shrink-0 space-y-2 border-b border-border/70 p-3">
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             <ToolTab tool={{
                 id: "home", label: "Tổng quan", longLabel: "Bản đồ chính",
                 icon: HomeIcon, description: "Duyệt POI, tìm kiếm, phân tích AI",
@@ -743,15 +824,7 @@ export default function MapPage() {
                 authRequired: false, hideBaseLayers: false, tier: "core",
                 Panel: (() => null) as any, Overlay: (() => null) as any,
             } as MapTool} isActive={activeTool === "home"} onClick={() => handleToolChange("home")}/>
-            {MAP_TOOLS.filter((t) => t.tier === "core").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
-          </div>
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
-            <span className="h-px flex-1 bg-border/70"/>
-            <span>Phân tích</span>
-            <span className="h-px flex-1 bg-border/70"/>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {MAP_TOOLS.filter((t) => t.tier === "analysis").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
+            {MAP_TOOLS.map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
           </div>
             </div>
             <div ref={menuBodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto scrollbar-hide p-4">
@@ -799,6 +872,45 @@ export default function MapPage() {
             </div>)}
 
           {showHomeControls ? (<>
+              <div className="card-surface p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Layers className="w-3.5 h-3.5 text-primary"/> Lớp ghim
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {LAYER_OPTIONS.filter((l) => enabledLayers.has(l.id)).length}/{LAYER_OPTIONS.length} đang bật
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  {LAYER_OPTIONS.map((layer) => {
+                    const theme = getPinTheme(layer.id);
+                    const layerIcon = LAYER_ICONS[layer.id];
+                    const Icon = layerIcon ? layerIcon.Icon : theme.icon;
+                    const iconColor = layerIcon ? layerIcon.color : theme.color;
+                    const on = isLayerOn(layer.id);
+                    const isPoi = layer.id === "poi";
+                    return (<div key={layer.id} className="rounded-lg transition-colors hover:bg-muted/30">
+                        <label className="flex cursor-pointer items-center gap-2 p-1.5">
+                          <input type="checkbox" checked={on} onChange={() => toggleLayer(layer.id)} className="h-3.5 w-3.5 shrink-0 accent-primary"/>
+                          <Icon className={`h-3.5 w-3.5 shrink-0 ${iconColor}`}/>
+                          <span className="min-w-0 flex-1 truncate text-xs text-foreground">{layer.label}</span>
+                          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+                            {layerCounts[layer.id] ?? "—"}
+                          </span>
+                        </label>
+                        {isPoi && on && (<div className="flex gap-1.5 pb-1.5 pl-[2.15rem] pr-1.5">
+                            <button onClick={() => setShowHeatmap(false)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${!showHeatmap ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground hover:text-foreground"}`}>
+                              Cụm ghim
+                            </button>
+                            <button onClick={() => setShowHeatmap(true)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${showHeatmap ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground hover:text-foreground"}`}>
+                              Lớp nhiệt
+                            </button>
+                          </div>)}
+                      </div>);
+                })}
+                </div>
+              </div>
+
               
               <div className="relative">
                 <SearchBar value={searchTerm} onChange={setSearchTerm}/>
@@ -851,6 +963,15 @@ export default function MapPage() {
         </div>
       </MapMenu>
 
+      <div className="hidden">
+        {["learning-space", "climate"].map((layerId) => {
+            if (!enabledLayers.has(layerId) || activeTool === layerId)
+                return null;
+            const layerDef = MAP_TOOL_BY_ID[layerId];
+            return layerDef ? React.createElement(layerDef.Panel, { key: layerId, ...layerPanelProps(layerId) }) : null;
+        })}
+      </div>
+
       
       {showPinLegend && (<div className="absolute bottom-6 right-[4.5rem] z-[45] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
           <div className="p-2.5 border-b border-border flex items-center justify-between">
@@ -861,8 +982,8 @@ export default function MapPage() {
           </div>
           <div className="p-2.5 space-y-1.5">
             {PIN_LEGEND.map(({ category: cat, label, color, icon: Icon }) => {
-                const visible = visiblePinCategories.has(cat);
-                return (<button key={cat} onClick={() => togglePinCategory(cat)} className="w-full flex items-center gap-2 text-left text-xs p-1.5 rounded hover:bg-muted/40 transition-colors">
+                const visible = enabledLayers.has(cat);
+                return (<button key={cat} onClick={() => toggleLayer(cat)} className="w-full flex items-center gap-2 text-left text-xs p-1.5 rounded hover:bg-muted/40 transition-colors">
                   <div className={`w-5 h-5 flex items-center justify-center ${color}`}>
                     <Icon className="w-3 h-3"/>
                   </div>

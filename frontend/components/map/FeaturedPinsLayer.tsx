@@ -1,8 +1,7 @@
 "use client";
-import React from "react";
 import { Marker, Tooltip, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { Star, MapPin, Atom, Leaf, GraduationCap, Wifi, Heart, ShoppingCart, type LucideIcon, } from "lucide-react";
+import { Star, Atom, Leaf, GraduationCap, Wifi, Heart, ShoppingCart, type LucideIcon, } from "lucide-react";
 import { createPinIcon, createClusterIcon, type PinBadge } from "./PinTheme";
 export interface FeaturedPin {
     id: string;
@@ -83,7 +82,7 @@ export function FeaturedPinsLayer({ pins, visible = true, visibleCategories, hid
             return false;
         if (hiddenCategories && hiddenCategories.has(p.category))
             return false;
-        if (visibleCategories && visibleCategories.size > 0 && !visibleCategories.has(p.category))
+        if (visibleCategories && !visibleCategories.has(p.category))
             return false;
         return true;
     });

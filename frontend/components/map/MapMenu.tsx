@@ -2,7 +2,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useResizable } from "@/src/hooks/useResizable";
-
 export interface MapMenuItem {
     id: string;
     label: string;
@@ -28,6 +27,17 @@ export default function MapMenu({ open, onOpenChange, title, groups, children }:
         maxWidth: 640,
         handleEdge: "left",
     });
+    React.useEffect(() => {
+        if (typeof document === "undefined")
+            return;
+        const root = document.documentElement;
+        const railWidth = 56;
+        const width = open ? panelSize.width + railWidth : railWidth;
+        root.style.setProperty("--edumap-map-panel-w", `${width}px`);
+        return () => {
+            root.style.removeProperty("--edumap-map-panel-w");
+        };
+    }, [open, panelSize.width]);
     return (<div className="pointer-events-none absolute inset-y-0 right-0 z-[50] flex items-stretch">
       <div className="pointer-events-auto flex h-full w-14 shrink-0 flex-col items-center gap-1 py-3">
         {groups.map((group, groupIndex) => (<React.Fragment key={groupIndex}>
