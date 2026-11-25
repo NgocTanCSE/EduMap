@@ -345,6 +345,10 @@ currently has no inference provider, so the endpoint always returns
   - Weather: OpenWeatherMap (requires `OWM_API_KEY` as a host secret) via
     `curl --ipv4 --insecure`; degrades to static hazard map when key absent.
   - Elevation: Open-Meteo free elevation API; cached on disk in `/tmp/`.
+    **Bulk (2026-11-25):** `_get_elevations_bulk()` gọi 1 lần mỗi 100 điểm —
+    không gọi riêng từng ô grid (trước đây 900 ô × 1 curl/orừ hang
+    qua 45s proxy BE); breaker 5 phút khi egress lỗi; weather OWM fetch
+    1 lần ở tâm bbox thay vì mỗi ô.
   - 24h in-process TTL cache (mirrors `forecast.py`) on both endpoints.
   - Backend proxy: `GET /api/map/climate-risk` + `POST /api/map/climate/alternatives`
     in `map.controller.ts` / `map.service.ts` (with 24h LRU cache + graceful
