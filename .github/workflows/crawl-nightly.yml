@@ -139,3 +139,12 @@ jobs:
           OVERPASS_MAX_PER_CATEGORY: "600"
         run: |
           python3 crawlers/overpass_seed.py --bbox "$OVERPASS_BBOX" || echo "::warning::overpass seed failed (continuing)"
+
+      - name: Fail loudly when DB secrets are missing
+        if: ${{ (github.event.inputs.run_pois == 'true') || (github.event.inputs.run_overpass == 'true') || (github.event_name == 'schedule') }}
+        run: |
+          if [ -z "${{ secrets.DB_HOST }}" ] || [ -z "${{ secrets.DB_PASSWORD }}" ]; then
+            echo "::error::DB_HOST/DB_PASSWORD chưa khai trong repo secrets — crawler CHẠY NHƯNG KHÔNG GHI được dòng nào vào DB. Vào Settings → Secrets and variables → Actions để thêm DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE."
+            exit 1
+          fi
+          echo "DB secrets OK"
