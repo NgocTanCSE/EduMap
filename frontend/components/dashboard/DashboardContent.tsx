@@ -86,14 +86,16 @@ export function DashboardContent({ variant = "page" }: {
             ? "space-y-5 p-4"
             : "w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 space-y-8"}>
       {!isDrawer && <HubTabBar hubId="personal"/>}
-      <section className="relative overflow-hidden rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <section className={`relative overflow-hidden rounded-[22px] border border-border/80 bg-card shadow-orvel flex justify-between gap-6 ${isDrawer
+            ? "flex-col p-5"
+            : "flex-col p-6 sm:p-8 md:flex-row md:items-end"}`}>
         <InteractiveGridPattern className="opacity-35 [mask-image:radial-gradient(450px_circle_at_top_right,white,transparent)]"/>
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-600 animate-pulse"/>
             <span>{todayDateStr}</span>
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className={`mt-1 font-extrabold tracking-tight text-foreground ${isDrawer ? "text-xl" : "text-2xl sm:text-3xl"}`}>
             Chào buổi sáng, {user.fullName || "bạn"}!
           </h1>
           <p className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-2xl">
@@ -110,10 +112,10 @@ export function DashboardContent({ variant = "page" }: {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
-        <div className="xl:col-span-7 2xl:col-span-8 space-y-6">
-          <div className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-border/60">
+      <section className={`grid grid-cols-1 items-start ${isDrawer ? "gap-5" : "gap-6 xl:grid-cols-12"}`}>
+        <div className={isDrawer ? "space-y-5" : "xl:col-span-7 2xl:col-span-8 space-y-6"}>
+          <div className={`rounded-[22px] border border-border/80 bg-card shadow-orvel ${isDrawer ? "p-5 space-y-5" : "p-6 sm:p-8 space-y-6"}`}>
+            <div className={`flex items-start justify-between gap-4 pb-6 border-b border-border/60 ${isDrawer ? "flex-col" : "flex-col sm:flex-row sm:items-center"}`}>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <img src={user.avatar_url || avatarFallback(user.fullName)} onError={onImageError(avatarFallback(user.fullName))} alt={user.fullName} className="h-16 w-16 shrink-0 rounded-2xl border-2 border-primary/20 object-cover shadow-sm"/>
@@ -146,7 +148,7 @@ export function DashboardContent({ variant = "page" }: {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className={`grid grid-cols-1 gap-4 text-xs ${isDrawer ? "" : "sm:grid-cols-2"}`}>
               <div className="rounded-xl border border-border/60 bg-secondary/30 p-3.5 space-y-1">
                 <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Khu vực học tập</span>
                 <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
@@ -173,8 +175,8 @@ export function DashboardContent({ variant = "page" }: {
           <PersonalHub />
         </div>
 
-        <div className="xl:col-span-5 2xl:col-span-4 space-y-6">
-          <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel space-y-4">
+        <div className={isDrawer ? "space-y-5" : "xl:col-span-5 2xl:col-span-4 space-y-6"}>
+          <div className={`rounded-[22px] border border-border/80 bg-card shadow-orvel space-y-4 ${isDrawer ? "p-5" : "p-6"}`}>
             <div className="flex items-center justify-between pb-3 border-b border-border/60">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Thẻ thông hành học tập</span>
@@ -217,7 +219,7 @@ export function DashboardContent({ variant = "page" }: {
             </p>
           </div>
 
-          <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel">
+          <div className={`rounded-[22px] border border-border/80 bg-card shadow-orvel ${isDrawer ? "p-5" : "p-6"}`}>
             <div className="flex items-center justify-between pb-3 border-b border-border/60 mb-4">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Chỉ số tổng quan
@@ -249,8 +251,8 @@ export function DashboardContent({ variant = "page" }: {
           </div>
         </div>
       </section>
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex flex-col justify-between">
+      <section className={`grid grid-cols-1 ${isDrawer ? "gap-5" : "gap-6 lg:grid-cols-2"}`}>
+        <div className={`rounded-[22px] border border-border/80 bg-card shadow-orvel flex flex-col justify-between ${isDrawer ? "p-5" : "p-6"}`}>
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -299,7 +301,7 @@ export function DashboardContent({ variant = "page" }: {
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex flex-col justify-between">
+        <div className={`rounded-[22px] border border-border/80 bg-card shadow-orvel flex flex-col justify-between ${isDrawer ? "p-5" : "p-6"}`}>
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

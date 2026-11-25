@@ -34,7 +34,7 @@ export function QuickDock({ className, onOpenDashboard }: QuickDockProps) {
         return () => mq.removeEventListener("change", apply);
     }, []);
     useEffect(() => {
-        if (isMobile)
+        if (isMobile || pathname.startsWith("/map"))
             setCollapsed(true);
     }, [pathname, isMobile]);
     useEffect(() => {
