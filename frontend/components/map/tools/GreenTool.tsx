@@ -2,12 +2,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Leaf, Clock, Users, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 import { toast } from "@/src/lib/toast";
-import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
-import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
-import L from "leaflet";
+import { Marker, Popup, Tooltip, Circle } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
-import { createPinIcon, createClusterIcon, type PinBadge } from "../PinTheme";
+import { createPinIcon, type PinBadge } from "../PinTheme";
 interface GreenChallenge {
     id: string;
     title: string;

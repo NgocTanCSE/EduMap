@@ -7,21 +7,18 @@ export interface SharedItem {
     category: string;
     description: string;
     status: string;
-    owner_id: string;
-    created_at: string;
-    owner: {
-        id: string;
-        full_name: string;
-        avatar_url: string;
-    };
+    ownerId?: string;
+    createdAt?: string;
+    lat?: number | null;
+    lng?: number | null;
 }
 export interface BorrowRequest {
     id: string;
-    item_id: string;
-    requester_id: string;
+    itemId?: string;
+    requesterId?: string;
     message: string;
     status: string;
-    created_at: string;
+    createdAt?: string;
     item: SharedItem;
 }
 class ShareService {

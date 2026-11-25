@@ -91,10 +91,10 @@ const DB_INSERT_WIFI: &str = r#"
 "#;
 
 const DB_UPDATE_SPEED_TEST: &str = r#"
-    UPDATE locations SET rating_avg = ($1 * rating_count + $2) / (rating_count + 1),
+    UPDATE locations SET rating_avg = (COALESCE(rating_avg, 0) * rating_count + $1) / (rating_count + 1),
                          rating_count = rating_count + 1,
                          updated_at = NOW()
-    WHERE id::text = $3
+    WHERE id::text = $2
 "#;
 
 // ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ fn location_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "is_free": crate::db::opt_flag(&row, "is_free"),
         "password": crate::db::opt_text(&row, "password").unwrap_or_default(),
         "password_hint": crate::db::opt_text(&row, "password_hint").unwrap_or_default(),
-        "verified": crate::db::opt_flag(&row, "verified").unwrap_or(false),
+        "is_verified": crate::db::opt_flag(&row, "verified").unwrap_or(false),
         "reported_by": crate::db::opt_text(&row, "created_by").unwrap_or_default(),
         "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         "lat": crate::db::opt_num(&row, "lat"),
@@ -301,13 +301,11 @@ pub async fn submit_speed_test(
         None => return Err(AppError::NotFound("Wifi location not found.".to_string())),
     };
 
-    let current_avg: f64 = crate::db::opt_num(&location, "rating_avg").unwrap_or(0.0);
     let current_count: i64 = crate::db::opt_int(&location, "rating_count").unwrap_or(0);
     let new_count = current_count + 1;
-    let new_avg = (current_avg * current_count as f64 + rating) / (new_count as f64);
+    let new_avg = crate::db::opt_num(&location, "rating_avg").unwrap_or(0.0) * current_count as f64;
 
     crate::db::query(DB_UPDATE_SPEED_TEST)
-        .bind(&new_avg)
         .bind(&rating)
         .bind(&id)
         .execute(pool.db())
@@ -320,7 +318,7 @@ pub async fn submit_speed_test(
         "download_mbps": body.downloadSpeed,
         "upload_mbps": body.uploadSpeed,
         "rating": rating,
-        "updated_rating_avg": (new_avg * 100.0).round() / 100.0,
+        "updated_rating_avg": (((new_avg + rating) / new_count as f64) * 100.0).round() / 100.0,
         "updated_rating_count": new_count,
     }))))
 }

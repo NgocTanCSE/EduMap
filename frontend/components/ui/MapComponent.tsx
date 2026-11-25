@@ -207,6 +207,7 @@ function FocusHandler({ target }: {
     } | null;
 }) {
     const map = useMap();
+    const lastFocusRef = useRef<string>("");
     useEffect(() => {
         if (!target)
             return;
@@ -214,6 +215,10 @@ function FocusHandler({ target }: {
         const lng = Number(target.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng))
             return;
+        const key = `${lat},${lng}`;
+        if (key === lastFocusRef.current)
+            return;
+        lastFocusRef.current = key;
         map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
     }, [target, map]);
     return null;

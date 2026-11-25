@@ -1,12 +1,10 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { Wifi, MapPin, Navigation, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { Wifi, MapPin, Navigation, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "@/src/lib/toast";
-import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
-import { Marker, Popup, Circle, Tooltip, useMap } from "react-leaflet";
-import L from "leaflet";
+import { Marker, Popup, Circle, Tooltip } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 import { createPinIcon, type PinBadge } from "../PinTheme";
 interface WifiLocation {

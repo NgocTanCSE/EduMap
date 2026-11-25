@@ -1,30 +1,13 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Heart, MapPin, Loader2, RefreshCw, AlertCircle, Search, ShieldCheck } from "lucide-react";
+import { Heart, MapPin, Loader2, RefreshCw, AlertCircle, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "@/src/lib/toast";
-import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
+import { Marker, Popup, Tooltip, Circle } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 import { createPinIcon } from "../PinTheme";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import { donateService, DonationCampaign } from "@/src/services/donate.service";
 import { authService } from "@/src/services/auth.service";
-let mapRef: any = null;
-function MapBridge() {
-    const map = useMap();
-    useEffect(() => {
-        mapRef = map;
-        return () => {
-            if (mapRef === map)
-                mapRef = null;
-        };
-    }, [map]);
-    return null;
-}
-function focusCampaign(lat: number, lng: number) {
-    if (mapRef && Number.isFinite(lat) && Number.isFinite(lng)) {
-        mapRef.flyTo([lat, lng], 14, { duration: 0.6 });
-    }
-}
 function parsePoint(point?: string): [number, number] | null {
     if (!point)
         return null;
@@ -50,7 +33,7 @@ function formatVnd(value: number | string): string {
         return `${Math.round(amount / 1000)}k`;
     return `${amount}₫`;
 }
-function DonatePanel({ result, onResult, loading, setLoading, error, setError, active }: ToolPanelProps) {
+function DonatePanel({ result, onResult, loading, setLoading, error, setError, active, onFocusMap }: ToolPanelProps) {
     const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [donatingTo, setDonatingTo] = useState<DonationCampaign | null>(null);
@@ -144,7 +127,7 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
               </p>
             </div>
             <button onClick={() => setDonatingTo(null)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Hủy">
-              <AlertCircle className="h-3 w-3"/>
+              <X className="h-3 w-3"/>
             </button>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -174,8 +157,8 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
                     <div className="flex items-start justify-between gap-2">
                       <button type="button" onClick={() => {
                             const c = parsePoint(camp.location_point);
-                            if (c)
-                                focusCampaign(c[0], c[1]);
+                            if (c && onFocusMap)
+                                onFocusMap(c[0], c[1], 14);
                         }} className="min-w-0 flex-1 text-left">
                         <div className="flex items-center gap-1.5 font-medium text-foreground">
                           <Heart className="h-3 w-3 shrink-0 text-destructive"/>
@@ -221,7 +204,6 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
 function DonateOverlay({ result }: ToolOverlayProps) {
     const campaigns: DonationCampaign[] = Array.isArray(result) ? result : [];
     return (<>
-      <MapBridge />
       {campaigns.map((camp) => {
             const coords = parsePoint(camp.location_point);
             if (!coords)

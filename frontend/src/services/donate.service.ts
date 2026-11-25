@@ -20,8 +20,8 @@ export interface DonationResponse {
     campaign: {
         id: string;
         title: string;
-        current_amount: number;
-        target_amount: number;
+        current_amount: string | number;
+        target_amount: string | number;
     };
 }
 class DonateService {
@@ -85,6 +85,7 @@ class DonateService {
                     amount,
                     is_anonymous,
                 }),
+                retries: 0,
             });
             const data = await response.json();
             if (!response.ok) {

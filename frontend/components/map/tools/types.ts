@@ -15,6 +15,7 @@ export interface ToolPanelProps {
     setError: (e: string | null) => void;
     active: boolean;
     user: any;
+    onFocusMap?: (lat: number, lng: number, zoom?: number) => void;
 }
 export interface ToolOverlayProps {
     result: any;

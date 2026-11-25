@@ -1,30 +1,13 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { ShoppingCart, MapPin, Loader2, RefreshCw, AlertCircle, Search, Plus, MessageSquare, BookOpen, Package } from "lucide-react";
+import { ShoppingCart, MapPin, Loader2, RefreshCw, AlertCircle, Search, Plus, MessageSquare, BookOpen, Package, X } from "lucide-react";
 import { toast } from "@/src/lib/toast";
-import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
+import { Marker, Popup, Tooltip, Circle } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 import { createPinIcon } from "../PinTheme";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import { shareService, SharedItem } from "@/src/services/share.service";
 import { authService } from "@/src/services/auth.service";
-let mapRef: any = null;
-function MapBridge() {
-    const map = useMap();
-    useEffect(() => {
-        mapRef = map;
-        return () => {
-            if (mapRef === map)
-                mapRef = null;
-        };
-    }, [map]);
-    return null;
-}
-function focusItem(lat: number, lng: number) {
-    if (mapRef && Number.isFinite(lat) && Number.isFinite(lng)) {
-        mapRef.flyTo([lat, lng], 16, { duration: 0.6 });
-    }
-}
 interface MarketItem extends SharedItem {
     lat?: number;
     lng?: number;
@@ -44,7 +27,7 @@ function itemCoords(item: MarketItem): [number, number] | null {
     }
     return null;
 }
-function MarketPanel({ viewport, result, onResult, loading, setLoading, error, setError, active }: ToolPanelProps) {
+function MarketPanel({ viewport, result, onResult, loading, setLoading, error, setError, active , onFocusMap }: ToolPanelProps) {
     const [items, setItems] = useState<MarketItem[]>([]);
     const [category, setCategory] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
@@ -177,7 +160,7 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold text-foreground">Đăng tài liệu mới</p>
             <button onClick={() => setShowShareForm(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Đóng">
-              <AlertCircle className="h-3 w-3"/>
+              <X className="h-3 w-3"/>
             </button>
           </div>
           <input type="text" placeholder="Tên tài liệu / học cụ" value={shareForm.name} onChange={(e) => setShareForm({ ...shareForm, name: e.target.value })} className="h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"/>
@@ -201,7 +184,7 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
               </p>
             </div>
             <button onClick={() => setBorrowingItem(null)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Hủy">
-              <AlertCircle className="h-3 w-3"/>
+              <X className="h-3 w-3"/>
             </button>
           </div>
           <textarea rows={3} placeholder="Lời nhắn gửi người chia sẻ" value={message} onChange={(e) => setMessage(e.target.value)} className="form-textarea text-xs"/>
@@ -228,8 +211,8 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
                   <div className="flex items-start justify-between gap-2">
                     <button type="button" onClick={() => {
                         const c = itemCoords(item);
-                        if (c)
-                            focusItem(c[0], c[1]);
+                        if (c && onFocusMap)
+                            onFocusMap(c[0], c[1], 16);
                     }} className="min-w-0 flex-1 text-left">
                       <div className="flex items-center gap-1.5 font-medium text-foreground">
                         <BookOpen className="h-3 w-3 shrink-0 text-primary"/>
@@ -260,7 +243,6 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
 function MarketOverlay({ result }: ToolOverlayProps) {
     const items: MarketItem[] = Array.isArray(result) ? result : [];
     return (<>
-      <MapBridge />
       {items.map((item) => {
             const coords = itemCoords(item);
             if (!coords)

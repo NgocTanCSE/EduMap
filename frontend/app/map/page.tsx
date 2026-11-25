@@ -362,6 +362,9 @@ export default function MapPage() {
     const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<FeaturedPin | null>(null);
     const [directionsTarget, setDirectionsTarget] = useState<{ lat: number; lng: number } | null>(null);
     const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number } | null>(null);
+    const focusOnMap = useCallback((lat: number, lng: number, _zoom?: number) => {
+        setFocusTarget({ lat, lng });
+    }, []);
     const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
     const [isSavingPin, setIsSavingPin] = useState(false);
     const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
@@ -788,6 +791,7 @@ export default function MapPage() {
             setError: (e: string | null) => handleToolError(activeTool, e),
             active: true,
             user,
+            onFocusMap: focusOnMap,
         } as any
         : null;
     const layerPanelProps = (toolId: string) => ({
@@ -800,6 +804,7 @@ export default function MapPage() {
         setError: (e: string | null) => handleToolError(toolId, e),
         active: true,
         user,
+        onFocusMap: focusOnMap,
     }) as any;
     const menuGroups: MapMenuItem[][] = [
         [
