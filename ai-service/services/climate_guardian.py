@@ -66,9 +66,10 @@ OWM_API_KEY = (os.getenv("OWM_API_KEY") or "").strip().strip('"').strip("'")
 OWM_BASE = "https://api.openweathermap.org/data/2.5"
 OWM_TIMEOUT = float(os.getenv("OWM_TIMEOUT_SECONDS", "6"))
 
-
 OM_ELEV_BASE = "https://api.open-meteo.com/v1/elevation"
 OM_WEATHER_BASE = "https://api.open-meteo.com/v1/forecast"
+OM_ELEV_TIMEOUT = float(os.getenv("OM_ELEV_TIMEOUT_SECONDS", "6"))
+OM_ELEV_BATCH = int(os.getenv("OM_ELEV_BATCH_SIZE", "100"))
 
 
 
@@ -77,6 +78,7 @@ OM_WEATHER_BASE = "https://api.open-meteo.com/v1/forecast"
 
 
 _OWM_DOWN_UNTIL: float = 0.0
+_OM_ELEV_DOWN_UNTIL: float = 0.0
 
 
 FLOOD_WEIGHT = 0.35
@@ -319,35 +321,52 @@ def _curl_post_json(url: str, payload: Any, timeout: float,
         return None
 
 
-def _get_elevation(lat: float, lng: float) -> Optional[float]:
-    """Fetch elevation (m) for a point from the Open-Meteo elevation API.
-
-    Results are cached to disk in ``_save_elevation_cache`` (ephemeral on
-    container — the cache is rebuilt on the next call).
-    """
-    cache: Dict[str, float] = {}
+def _load_elevation_cache() -> Dict[str, float]:
+    """Read the on-disk elevation cache (best-effort, may not exist)."""
     try:
         if os.path.exists(ELEV_CACHE_PATH):
             with open(ELEV_CACHE_PATH, "r") as f:
-                cache = json.load(f)
+                return json.load(f)
     except Exception:
-        cache = {}
-    key = f"{round(lat, 6)},{round(lng, 6)}"
-    if key in cache:
-        return cache[key]
+        pass
+    return {}
 
-    url = f"{OM_ELEV_BASE}?latitude={lat}&longitude={lng}"
-    data = _curl_get_json(url, timeout=6)
-    elev = None
-    if data and isinstance(data.get("elevation"), list):
-        try:
-            elev = float(data["elevation"][0])
-        except (IndexError, TypeError, ValueError):
-            elev = None
-    if elev is not None:
-        cache[key] = elev
+
+def _get_elevations_bulk(coords: List[Tuple[float, float]]) -> Dict[str, Optional[float]]:
+    """Fetch elevations (m) for many points from the Open-Meteo elevation API.
+
+    One HTTP call per ``OM_ELEV_BATCH`` coords (the API accepts arrays),
+    results cached to disk. Never raises; a failed batch opens a 5-minute
+    circuit breaker and returns ``None`` for every uncached key.
+    """
+    global _OM_ELEV_DOWN_UNTIL
+    cache = _load_elevation_cache()
+    keys = [f"{round(lat, 6)},{round(lng, 6)}" for lat, lng in coords]
+    missing = [k for k in dict.fromkeys(keys) if k not in cache]
+    if time.monotonic() < _OM_ELEV_DOWN_UNTIL:
+        return {k: cache.get(k) for k in keys}
+    for start in range(0, len(missing), OM_ELEV_BATCH):
+        batch = missing[start:start + OM_ELEV_BATCH]
+        query = "&".join(
+            f"latitude%5B%5D={k.split(',')[0]}&longitude%5B%5D={k.split(',')[1]}"
+            for k in batch
+        )
+        data = _curl_get_json(f"{OM_ELEV_BASE}?{query}", timeout=OM_ELEV_TIMEOUT)
+        if data is None or not isinstance(data.get("elevation"), list):
+            _OM_ELEV_DOWN_UNTIL = time.monotonic() + 300
+            return {k: cache.get(k) for k in keys}
+        for k, e in zip(batch, data["elevation"]):
+            try:
+                cache[k] = float(e)
+            except (TypeError, ValueError):
+                pass
         _save_elevation_cache(cache)
-    return elev
+    return {k: cache.get(k) for k in keys}
+
+
+def _get_elevation(lat: float, lng: float) -> Optional[float]:
+    """Fetch elevation (m) for a single point (delegates to the bulk fetcher)."""
+    return _get_elevations_bulk([(lat, lng)]).get(f"{round(lat, 6)},{round(lng, 6)}")
 
 
 def _save_elevation_cache(cache: Dict[str, float]) -> None:
@@ -729,8 +748,7 @@ def _flood_risk(lat: float, lng: float, month: int,
 def _weather_risk(lat: float, lng: float) -> float:
     """Get current weather severity ∈ [0, 1]. Returns 0.0 if OWM unavailable
     (static fallback → no weather-based risk contribution)."""
-    weather = _get_weather(lat, lng)
-    return _weather_severity(weather)
+    return _weather_severity(_get_weather(lat, lng))
 
 
 def _access_risk(lat: float, lng: float, facilities: List[Dict[str, Any]]) -> float:
@@ -830,6 +848,7 @@ class ClimateGuardianService:
             reason = (reason + " | " if reason else "") + "OpenWeatherMap đang nghẽn (circuit breaker)."
         elif not OWM_API_KEY:
             reason = (reason + " | " if reason else "") + "Chưa cài OWM_API_KEY — dùng bản đồ ngập tĩnh."
+        weather_center = _get_weather((min_lat + max_lat) / 2, (min_lng + max_lng) / 2) if has_weather else None
 
         features: List[Dict[str, Any]] = []
         heat_points: List[List[float]] = []
@@ -841,60 +860,62 @@ class ClimateGuardianService:
         lats = [min_lat + i * (max_lat - min_lat) / n_lat for i in range(n_lat + 1)]
         lngs = [min_lng + j * (max_lng - min_lng) / n_lng for j in range(n_lng + 1)]
 
+        cell_centers = [
+            ((lats[i] + lats[i + 1]) / 2, (lngs[j] + lngs[j + 1]) / 2)
+            for i in range(len(lats) - 1)
+            for j in range(len(lngs) - 1)
+        ]
+        elevations = _get_elevations_bulk(cell_centers)
+
         max_cell_risk = 0.0
-        for i in range(len(lats) - 1):
-            for j in range(len(lngs) - 1):
-                clat = (lats[i] + lats[i + 1]) / 2
-                clng = (lngs[j] + lngs[j + 1]) / 2
+        for clat, clng in cell_centers:
+            f_risk = _flood_risk(clat, clng, month, zones)
+            w_risk = _weather_severity(weather_center)
+            a_risk = _access_risk(clat, clng, facilities)
+            elev = elevations.get(f"{round(clat, 6)},{round(clng, 6)}")
+            t_risk = _terrain_slope_risk(clat, clng, elev)
 
 
-                f_risk = _flood_risk(clat, clng, month, zones)
-                w_risk = _weather_risk(clat, clng) if has_weather else 0.0
-                a_risk = _access_risk(clat, clng, facilities)
-                elev = _get_elevation(clat, clng)
-                t_risk = _terrain_slope_risk(clat, clng, elev)
+            if t_risk > 0:
+                a_risk = float(min(1.0, a_risk * (1 - t_risk * 0.3) + t_risk * 0.3))
+
+            cell_risk = (
+                FLOOD_WEIGHT * f_risk
+                + WEATHER_WEIGHT * w_risk
+                + ACCESS_WEIGHT * a_risk
+            )
+            cell_risk = float(min(1.0, max(0.0, cell_risk)))
+            if cell_risk > max_cell_risk:
+                max_cell_risk = cell_risk
 
 
-                if t_risk > 0:
-                    a_risk = float(min(1.0, a_risk * (1 - t_risk * 0.3) + t_risk * 0.3))
+            ring = [
+                [clng - grid_step / 2, clat - grid_step / 2],
+                [clng + grid_step / 2, clat - grid_step / 2],
+                [clng + grid_step / 2, clat + grid_step / 2],
+                [clng - grid_step / 2, clat + grid_step / 2],
+                [clng - grid_step / 2, clat - grid_step / 2],
+            ]
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [ring]},
+                "properties": {
+                    "lat": round(clat, 6),
+                    "lng": round(clng, 6),
+                    "risk_score": round(cell_risk, 3),
+                    "risk_score_pct": round(cell_risk * 100, 1),
+                    "risk_level": _risk_level(cell_risk),
+                    "flood_risk": round(f_risk, 3),
+                    "weather_risk": round(w_risk, 3),
+                    "access_risk": round(a_risk, 3),
+                    "terrain_risk": round(t_risk, 3),
+                    "elevation_m": round(elev, 1) if elev is not None else None,
+                    "nearest_facility": self._nearest_facility_name(clat, clng, facilities),
+                },
+            })
 
-                cell_risk = (
-                    FLOOD_WEIGHT * f_risk
-                    + WEATHER_WEIGHT * w_risk
-                    + ACCESS_WEIGHT * a_risk
-                )
-                cell_risk = float(min(1.0, max(0.0, cell_risk)))
-                if cell_risk > max_cell_risk:
-                    max_cell_risk = cell_risk
-
-
-                ring = [
-                    [clng - grid_step / 2, clat - grid_step / 2],
-                    [clng + grid_step / 2, clat - grid_step / 2],
-                    [clng + grid_step / 2, clat + grid_step / 2],
-                    [clng - grid_step / 2, clat + grid_step / 2],
-                    [clng - grid_step / 2, clat - grid_step / 2],
-                ]
-                features.append({
-                    "type": "Feature",
-                    "geometry": {"type": "Polygon", "coordinates": [ring]},
-                    "properties": {
-                        "lat": round(clat, 6),
-                        "lng": round(clng, 6),
-                        "risk_score": round(cell_risk, 3),
-                        "risk_score_pct": round(cell_risk * 100, 1),
-                        "risk_level": _risk_level(cell_risk),
-                        "flood_risk": round(f_risk, 3),
-                        "weather_risk": round(w_risk, 3),
-                        "access_risk": round(a_risk, 3),
-                        "terrain_risk": round(t_risk, 3),
-                        "elevation_m": round(elev, 1) if elev is not None else None,
-                        "nearest_facility": self._nearest_facility_name(clat, clng, facilities),
-                    },
-                })
-
-                if cell_risk >= 0.1:
-                    heat_points.append([round(clat, 6), round(clng, 6), round(cell_risk, 3)])
+            if cell_risk >= 0.1:
+                heat_points.append([round(clat, 6), round(clng, 6), round(cell_risk, 3)])
 
 
         heat_points.sort(key=lambda p: p[2], reverse=True)
@@ -928,7 +949,7 @@ class ClimateGuardianService:
                 "method": "climate_guardian_v1",
                 "data_source": data_source,
                 "has_weather": has_weather and bool(OWM_API_KEY),
-                "has_elevation": True,
+                "has_elevation": any(v is not None for v in elevations.values()),
                 "flood_zones_loaded": len(zones),
                 "features_loaded": len(facilities),
                 "grid_cells": len(features),
@@ -973,6 +994,7 @@ class ClimateGuardianService:
 
 
         nearby: List[Dict[str, Any]] = []
+        elevations = _get_elevations_bulk([(f["lat"], f["lng"]) for f in facilities])
         for f in facilities:
             dist = _haversine_km(lat, lng, f["lat"], f["lng"])
             if dist <= radius_km:
@@ -980,7 +1002,7 @@ class ClimateGuardianService:
                     continue
 
                 f_risk = _flood_risk(f["lat"], f["lng"], month, zones)
-                elev = _get_elevation(f["lat"], f["lng"])
+                elev = elevations.get(f"{round(f['lat'], 6)},{round(f['lng'], 6)}")
                 t_risk = _terrain_slope_risk(f["lat"], f["lng"], elev)
 
 
