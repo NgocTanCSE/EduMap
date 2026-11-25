@@ -281,8 +281,8 @@ const DB_INSERT_CAMPAIGN: &str = r#"
         ("title", "description", "target_amount", "current_amount", "status",
          "organizer_id", "location_point", "start_date", "end_date", "images",
          "created_at", "updated_at")
-    VALUES ($1, $2, $3, 0, 'active', $4,
-            ST_SetSRID(ST_MakePoint($5, $6), 4326),
+    VALUES ($1, $2, $3::numeric, 0, 'active', $4::uuid,
+            ST_SetSRID(ST_MakePoint($5::double precision, $6::double precision), 4326)::geography,
             $7, $8, $9, NOW(), NOW())
     RETURNING "id"
 "#;
@@ -303,7 +303,7 @@ const DB_INSERT_DONATION: &str = r#"
 
 const DB_INCREMENT_AMOUNT: &str = r#"
     UPDATE "donation_campaigns"
-    SET "current_amount" = "current_amount" + $1
+    SET "current_amount" = "current_amount" + $1::numeric
     WHERE "id"::text = $2
 "#;
 
