@@ -1721,7 +1721,7 @@ fn feature_link_for(category: &str) -> &'static str {
         "wifi" => "/map?tool=wifi",
         "donate" => "/map?tool=donate",
         "market" => "/map?tool=market",
-        _ => "/",
+        _ => "/map",
     }
 }
 

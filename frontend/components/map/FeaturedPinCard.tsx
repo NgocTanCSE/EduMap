@@ -54,30 +54,12 @@ export function FeaturedPinCard({ pin, onClose, onGo, onOpenTool, onRoute }: Fea
         </p>)}
 
       <div className="grid grid-cols-2 gap-2 mb-2">
-        {pin.carbon_saved_kg !== undefined && pin.carbon_saved_kg > 0 && (<div className="p-2 rounded-lg bg-green-50/20 border border-green-600/20">
-            <div className="font-bold text-xs text-green-600">{pin.carbon_saved_kg} kg</div>
-            <div className="text-[10px] text-muted-foreground/70">CO2 tiết kiệm</div>
-          </div>)}
-        {pin.participants_count !== undefined && pin.participants_count > 0 && (<div className="p-2 rounded-lg bg-primary/5 border border-primary/10">
-            <div className="font-bold text-xs text-primary">{pin.participants_count}</div>
-            <div className="text-[10px] text-muted-foreground/70">Người tham gia</div>
-          </div>)}
-        {pin.points !== undefined && pin.points > 0 && (<div className="p-2 rounded-lg bg-amber-50/20 border border-amber-600/20">
-            <div className="font-bold text-xs text-amber-600">{pin.points}</div>
-            <div className="text-[10px] text-muted-foreground/70">Điểm số</div>
-          </div>)}
         {Number(pin.current_amount) > 0 && Number(pin.target_amount) > 0 && (<div className="p-2 rounded-lg bg-red-50/20 border border-red-600/20">
             <div className="font-bold text-xs text-red-600">
               {Math.min(100, Math.round((Number(pin.current_amount) / Number(pin.target_amount)) * 100))}%
             </div>
             <div className="text-[10px] text-muted-foreground/70">
               {Number(pin.current_amount).toLocaleString()}₫ / {Number(pin.target_amount).toLocaleString()}₫
-            </div>
-          </div>)}
-        {pin.speed_label && (<div className="p-2 rounded-lg bg-blue-50/20 border border-blue-600/20">
-            <div className="font-bold text-xs text-blue-600">{pin.speed_label}</div>
-            <div className="text-[10px] text-muted-foreground/70">
-              {pin.is_free === true ? "Miễn phí" : pin.is_free === false ? "Trả tiền" : "Chưa rõ"}
             </div>
           </div>)}
       </div>

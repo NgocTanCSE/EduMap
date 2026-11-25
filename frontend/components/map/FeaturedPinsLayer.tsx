@@ -14,13 +14,8 @@ export interface FeaturedPin {
     featureLink: string;
     icon_variant?: string;
     is_verified?: boolean;
-    points?: number;
-    carbon_saved_kg?: number;
-    participants_count?: number;
     current_amount?: number;
     target_amount?: number;
-    speed_label?: string;
-    is_free?: boolean | null;
     status?: string;
 }
 export interface FeaturedPinsLayerProps {
