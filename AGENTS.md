@@ -2499,12 +2499,15 @@ hướng trong hub do `HubTabBar`. Không có thanh nav trên cùng.
   Hub đang mở suy ra bằng `groupForPath(pathname)`. Mobile (≤640px) mặc định thu
   gọn; khi mở là popover dọc (7 hub + `/features` + giao diện + avatar/đăng nhập +
   đăng xuất), mở ở góc dưới-trái để tránh rail `MapMenu`, tự đóng khi đổi trang.
-  Trên `/map` nút thu gọn đặt `right-[4.75rem]` để không chồng rail `MapMenu`.
+  `right-[4.75rem]` để không chồng rail `MapMenu`. Dock tự thu gọn mỗi khi vào
+  trang `/map` (mọi pathname bắt đầu `/map`).
 - **Avatar → `DashboardDrawer` (`components/dashboard/DashboardDrawer.tsx`):**
   drawer trượt phải `w-[min(480px,100vw)]`, không lớp phủ tối, đóng bằng nút/Esc
   hoặc click nền trong suốt; nội dung dùng chung
   `components/dashboard/DashboardContent.tsx` (`variant="page" | "drawer"`);
   `app/dashboard/page.tsx` chỉ render `DashboardContent variant="page"`.
+  Variant `drawer` bố cục 1 cột, padding nhỏ hơn (khớp khung 480px); trang
+  `/dashboard` giữ nguyên layout 12 cột / responsive 2 cột.
 - **Catalog (`src/lib/feature-catalog.ts`) là nguồn duy nhất:** bỏ cờ `sidebar`,
   bỏ `SIDEBAR_FEATURES`/`SIDEBAR_GROUPS`; `FeatureGroup` thêm `hubHref`
   (personal `/dashboard`, map `/map`, learn `/scholarships`, career `/career`,
