@@ -44,7 +44,7 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
         radius: 5000,
         has_wifi: true,
         min_rating: 0,
-        quietness_min: 1,
+        quietness_min: 0,
         open_now: false,
         limit: 20,
     });
@@ -56,6 +56,7 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
         try {
             setLoading(true);
             setError(null);
+            setExplanation(null);
             const data = await learningSpaceService.recommendSpots(params);
             const list = data.spots || [];
             setSpotCount(data.total || list.length);

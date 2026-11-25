@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Sun, MapPin, Users, Loader2, RefreshCw, AlertCircle, TrendingUp, HeartHandshake, Activity, Search } from "lucide-react";
+import { Sun, MapPin, Users, Loader2, RefreshCw, AlertCircle, TrendingUp, HeartHandshake, Activity, Search, X } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
@@ -142,7 +142,7 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
               <p className="truncate text-[11px] text-muted-foreground">{reportFor.name}</p>
             </div>
             <button onClick={() => setReportFor(null)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="Đóng">
-              <AlertCircle className="h-3 w-3"/>
+              <X className="h-3 w-3"/>
             </button>
           </div>
           <input type="date" value={reportDate} onChange={(e) => {

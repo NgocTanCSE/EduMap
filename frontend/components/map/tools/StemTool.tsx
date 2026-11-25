@@ -218,7 +218,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
                     <BookmarkButton targetType="stem_lab" targetId={lab.id} size="sm"/>
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {(lab.equipment?.length ? lab.equipment.slice(0, 3) : []).map((eq) => (<button key={eq} type="button" onClick={() => openBooking(lab, eq)} className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground" title={`Đặt ${eq}`}>
+                    {(lab.equipment?.length ? lab.equipment.slice(0, 3) : []).map((eq, eqIdx) => (<button key={`${eq}-${eqIdx}`} type="button" onClick={() => openBooking(lab, eq)} className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground" title={`Đặt ${eq}`}>
                         <MonitorSmartphone className="h-2.5 w-2.5 shrink-0"/>
                         <span className="truncate">{eq}</span>
                       </button>))}

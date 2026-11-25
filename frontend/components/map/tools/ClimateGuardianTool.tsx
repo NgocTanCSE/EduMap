@@ -12,6 +12,12 @@ import { createPinIcon } from "../PinTheme";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 const DEFAULT_CENTER = { lat: 10.9525, lng: 106.8778 };
 const DEFAULT_BBOX = { minLat: 10.75, maxLat: 11.20, minLng: 106.60, maxLng: 107.20 };
+function clampBboxValue(raw: string, min: number, max: number, fallback: number): number {
+    const parsed = parseFloat(raw);
+    if (!Number.isFinite(parsed))
+        return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
 const CATEGORY_OPTIONS = [
     { label: "Tất cả", value: "" },
     { label: "Trường Đại học", value: "university" },
@@ -43,6 +49,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
     const [altCategory, setAltCategory] = useState("");
     const [altResult, setAltResult] = useState<any>(null);
     const [altLoading, setAltLoading] = useState(false);
+    const [fetchCounter, setFetchCounter] = useState(0);
     const fetchRisk = useCallback(async () => {
         if (!active)
             return;
@@ -61,6 +68,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
                 throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const data = unwrapApiResponse<any>(json);
+            setFetchCounter((c) => c + 1);
             onResult({ ...data, alternatives: altResult });
         }
         catch (err: any) {
@@ -106,7 +114,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
     useEffect(() => {
         if (active && !result)
             fetchRisk();
-    }, [bbox, dateStr, active]);
+    }, [active]);
     const riskResult = result || null;
     const meta = useMemo(() => riskResult?.metadata || {}, [riskResult]);
     const riskRanking = useMemo(() => riskResult?.risk_ranking || [], [riskResult]);
@@ -128,10 +136,10 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
         <div>
           <label className="text-sm font-medium text-foreground">Vùng (bounding box)</label>
           <div className="grid grid-cols-2 gap-2 mt-1">
-            <input type="number" step="0.001" value={bbox.minLat} onChange={(e) => setBbox({ ...bbox, minLat: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="minLat"/>
-            <input type="number" step="0.001" value={bbox.maxLat} onChange={(e) => setBbox({ ...bbox, maxLat: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="maxLat"/>
-            <input type="number" step="0.001" value={bbox.minLng} onChange={(e) => setBbox({ ...bbox, minLng: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="minLng"/>
-            <input type="number" step="0.001" value={bbox.maxLng} onChange={(e) => setBbox({ ...bbox, maxLng: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="maxLng"/>
+            <input type="number" step="0.001" value={bbox.minLat} onChange={(e) => setBbox({ ...bbox, minLat: clampBboxValue(e.target.value, -90, 90, bbox.minLat) })} className="form-input text-xs" placeholder="minLat"/>
+            <input type="number" step="0.001" value={bbox.maxLat} onChange={(e) => setBbox({ ...bbox, maxLat: clampBboxValue(e.target.value, -90, 90, bbox.maxLat) })} className="form-input text-xs" placeholder="maxLat"/>
+            <input type="number" step="0.001" value={bbox.minLng} onChange={(e) => setBbox({ ...bbox, minLng: clampBboxValue(e.target.value, -180, 180, bbox.minLng) })} className="form-input text-xs" placeholder="minLng"/>
+            <input type="number" step="0.001" value={bbox.maxLng} onChange={(e) => setBbox({ ...bbox, maxLng: clampBboxValue(e.target.value, -180, 180, bbox.maxLng) })} className="form-input text-xs" placeholder="maxLng"/>
           </div>
         </div>
 
@@ -215,9 +223,9 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <input type="number" step="0.001" value={altCenter.lat} onChange={(e) => setAltCenter({ ...altCenter, lat: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="lat"/>
-          <input type="number" step="0.001" value={altCenter.lng} onChange={(e) => setAltCenter({ ...altCenter, lng: parseFloat(e.target.value) || 0 })} className="form-input text-xs" placeholder="lng"/>
-          <input type="number" step="1" value={altRadius} onChange={(e) => setAltRadius(Math.max(1, parseInt(e.target.value) || 10))} className="form-input text-xs" placeholder="km"/>
+          <input type="number" step="0.001" value={altCenter.lat} onChange={(e) => setAltCenter({ ...altCenter, lat: clampBboxValue(e.target.value, -90, 90, altCenter.lat) })} className="form-input text-xs" placeholder="lat"/>
+          <input type="number" step="0.001" value={altCenter.lng} onChange={(e) => setAltCenter({ ...altCenter, lng: clampBboxValue(e.target.value, -180, 180, altCenter.lng) })} className="form-input text-xs" placeholder="lng"/>
+          <input type="number" step="1" value={altRadius} onChange={(e) => setAltRadius(Math.min(50, Math.max(1, parseInt(e.target.value) || 10)))} className="form-input text-xs" placeholder="km"/>
           <select value={altCategory} onChange={(e) => setAltCategory(e.target.value)} className="form-select text-sm">
             {CATEGORY_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
           </select>
@@ -312,7 +320,7 @@ function ClimateGuardianOverlayMap({ result, points }: {
     return (<>
       {heatLayerPoints.length > 0 && (<HeatmapLayer points={heatLayerPoints}/>)}
 
-      {data?.features?.length > 0 ? (<GeoJSON key={data.fetched_at ?? `climate-geojson-${data.features?.length}`} data={data} pathOptions={{
+      {data?.features?.length > 0 ? (<GeoJSON key={`climate-geojson-${fetchCounter}-${data.features?.length}`} data={data} pathOptions={{
                 color: "#0ea5e3",
                 weight: 1,
                 opacity: 0.6,

@@ -160,6 +160,9 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
     const [showDetails, setShowDetails] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [selectedSafeRouteIdx, setSelectedSafeRouteIdx] = useState<number | null>(null);
+    useEffect(() => {
+        setSelectedSafeRouteIdx(null);
+    }, [safeRoutes]);
     const { size: panelSize, onResizeMouseDown: onResizeMouseDown } = useResizable({
         initialSize: { width: 400, height: 400 },
         minWidth: 280,
