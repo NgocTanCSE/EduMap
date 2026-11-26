@@ -84,7 +84,7 @@ export function VoiceSearchPopup({ open, onClose, onResult, }: VoiceSearchPopupP
     };
     if (!open)
         return null;
-    return (<div className="fixed bottom-6 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2">
+    return (<div className="fixed bottom-20 sm:bottom-6 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2">
       <div className="bg-card border border-border rounded-2xl shadow-2xl max-h-[70vh] overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">

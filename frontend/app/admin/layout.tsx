@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, Shield, Activity, LayoutDashboard, Settings, LogOut, ChevronRight, Globe, Lock, Database, BrainCircuit } from 'lucide-react';
+import { Users, Shield, Activity, LayoutDashboard, Settings, LogOut, ChevronRight, Globe, Lock, Database, BrainCircuit, Menu, X } from 'lucide-react';
 import { authService } from '../../src/services/auth.service';
 const menuItems = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -18,6 +18,7 @@ export default function AdminLayout({ children }: {
     const pathname = usePathname();
     const router = useRouter();
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    const [navOpen, setNavOpen] = useState(false);
     useEffect(() => {
         const checkAuth = () => {
             if (!authService.isLoggedIn()) {
@@ -33,6 +34,9 @@ export default function AdminLayout({ children }: {
         };
         checkAuth();
     }, [pathname, router]);
+    useEffect(() => {
+        setNavOpen(false);
+    }, [pathname]);
     if (isAuthorized === null) {
         return (<div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"/>
@@ -51,7 +55,11 @@ export default function AdminLayout({ children }: {
       </div>);
     }
     return (<div className="flex min-h-screen bg-background">
-      <aside className="w-72 border-r border-border bg-card/50  flex flex-col fixed h-full z-50">
+      <button type="button" onClick={() => setNavOpen((v) => !v)} aria-label={navOpen ? 'Đóng menu quản trị' : 'Mở menu quản trị'} aria-expanded={navOpen} className="fixed top-3 left-3 z-[60] md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg">
+        {navOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
+      </button>
+      {navOpen && (<div className="fixed inset-0 z-40 md:hidden bg-transparent" onClick={() => setNavOpen(false)}/>)}
+      <aside className={`w-72 border-r border-border bg-card/50 flex-col fixed h-full z-50 ${navOpen ? 'flex' : 'hidden'} md:flex`}>
         <div className="p-8">
            <Link href="/map" className="flex items-center gap-3 group">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg ">
@@ -97,7 +105,7 @@ export default function AdminLayout({ children }: {
       </aside>
 
       
-      <main className="flex-1 ml-72">
+      <main className="flex-1 md:ml-72 ml-0">
         {children}
       </main>
     </div>);

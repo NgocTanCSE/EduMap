@@ -32,7 +32,9 @@ export default function MapMenu({ open, onOpenChange, title, groups, children }:
             return;
         const root = document.documentElement;
         const railWidth = 56;
-        const width = open ? panelSize.width + railWidth : railWidth;
+        const maxPanel = Math.max(0, window.innerWidth - railWidth - 8);
+        const panelWidth = Math.min(panelSize.width, maxPanel);
+        const width = open ? panelWidth + railWidth : railWidth;
         root.style.setProperty("--edumap-map-panel-w", `${width}px`);
         return () => {
             root.style.removeProperty("--edumap-map-panel-w");

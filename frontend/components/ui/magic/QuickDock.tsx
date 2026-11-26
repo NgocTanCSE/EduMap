@@ -131,7 +131,7 @@ export function QuickDock({ className, onOpenDashboard }: QuickDockProps) {
     }
     return (<div className={cn("fixed bottom-5 z-40 flex items-center gap-2 transition-all duration-300", onMap
             ? "left-5"
-            : "left-1/2 -translate-x-1/2", className)} style={onMap ? { maxWidth: "calc(100vw - var(--edumap-map-panel-w, 4.5rem) - 2.5rem)" } : undefined}>
+            : "left-1/2 -translate-x-1/2 max-w-[calc(100vw-1.5rem)]", className)} style={onMap ? { maxWidth: "max(2.5rem, calc(100vw - var(--edumap-map-panel-w, 3.5rem) - 2.5rem))" } : undefined}>
       <Dock className="max-w-full overflow-x-auto scrollbar-hide shadow-pop border border-border/80 bg-card/90 backdrop-blur-xl">
         <DockIcon>
           <AnimatedThemeToggler size="sm" className="border-0 bg-transparent shadow-none hover:bg-secondary/80"/>
