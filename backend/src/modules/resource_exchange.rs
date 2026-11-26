@@ -130,8 +130,8 @@ fn sql_text(value: &str) -> String {
 // ---------------------------------------------------------------------------
 
 const DB_RESOURCES: &str = r#"
-SELECT id, type, title, description, condition, location, lat, lng,
-       CAST(available_from AS TEXT) AS available_from, cost, contact_method,
+SELECT id, type, title, description, condition, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng",
+       CAST(available_from AS TEXT) AS available_from, CAST(cost AS DOUBLE PRECISION) AS "cost", contact_method,
        status, is_verified, CAST(tags AS TEXT) AS tags,
        CAST(metadata AS TEXT) AS metadata,
        CAST(created_by AS TEXT) AS created_by,
@@ -143,7 +143,7 @@ FROM resources
 const DB_RESOURCE_BY_ID: &str = r#"SELECT * FROM resources WHERE id::text = $1"#;
 
 const DB_INSERT_RESOURCE: &str = r#"
-INSERT INTO resources (type, title, description, condition, location, lat, lng,
+INSERT INTO resources (type, title, description, condition, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng",
     available_from, cost, contact_method, status, is_verified, tags, metadata,
     created_by, created_at, updated_at)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::uuid,NOW(),NOW())
@@ -151,7 +151,7 @@ RETURNING id
 "#;
 
 const DB_REQUESTS: &str = r#"
-SELECT id, need_type, title, description, urgency, location, lat, lng,
+SELECT id, need_type, title, description, urgency, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng",
        CAST(deadline AS TEXT) AS deadline, preferred_min_condition, contact_method,
        status, CAST(tags AS TEXT) AS tags,
        CAST(created_by AS TEXT) AS created_by,

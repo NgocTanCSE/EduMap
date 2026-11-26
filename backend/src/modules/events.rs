@@ -206,7 +206,7 @@ const DB_SELECT_EVENTS: &str = r#"
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",
-           "organizer_id", "status", "price",
+           "organizer_id", "status", CAST("price" AS DOUBLE PRECISION) AS "price",
            CAST("tags" AS TEXT) AS "tags",
            "is_online", "meeting_url",
            CAST("created_at" AS TEXT) AS "created_at",
@@ -223,7 +223,7 @@ const DB_SELECT_EVENT_BY_ID: &str = r#"
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",
-           "organizer_id", "status", "price",
+           "organizer_id", "status", CAST("price" AS DOUBLE PRECISION) AS "price",
            CAST("tags" AS TEXT) AS "tags",
            "is_online", "meeting_url",
            CAST("created_at" AS TEXT) AS "created_at",
@@ -236,7 +236,7 @@ const DB_INSERT_EVENT: &str = r#"
     INSERT INTO "events"
         ("title", "description", "type", "location_point", "address",
          "start_date", "end_date", "capacity", "banner_url",
-         "organizer_id", "status", "price", "tags", "is_online",
+         "organizer_id", "status", CAST("price" AS DOUBLE PRECISION) AS "price", "tags", "is_online",
          "meeting_url", "created_at", "updated_at")
     VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6,
             $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,

@@ -56,7 +56,8 @@ pub struct BorrowRequest {
 // ---------------------------------------------------------------------------
 
 const DB_ITEMS: &str = r#"
-SELECT id, name, category, description, status, lat, lng, address, owner_id,
+SELECT id, name, category, description, status,
+       CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng", address, owner_id,
        CAST(created_at AS TEXT) AS created_at,
        CAST(updated_at AS TEXT) AS updated_at
 FROM shared_items
@@ -66,7 +67,8 @@ WHERE status = 'available'
 const DB_ITEM_BY_ID: &str = r#"SELECT id, owner_id FROM shared_items WHERE id::text = $1"#;
 
 const DB_ITEM_FULL: &str = r#"
-SELECT id, name, category, description, status, lat, lng, address, owner_id,
+SELECT id, name, category, description, status,
+       CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng", address, owner_id,
        CAST(created_at AS TEXT) AS created_at,
        CAST(updated_at AS TEXT) AS updated_at
 FROM shared_items WHERE id::text = $1

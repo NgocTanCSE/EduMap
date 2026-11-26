@@ -39,7 +39,8 @@ use serde_json::Value;
 const DB_CHALLENGES: &str = r#"
     SELECT CAST("gc"."id" AS TEXT) AS "id", "gc"."title", "gc"."description",
            "gc"."points_reward", "gc"."status",
-           "gc"."lat", "gc"."lng", "gc"."address",
+           CAST("gc"."lat" AS DOUBLE PRECISION) AS "lat",
+           CAST("gc"."lng" AS DOUBLE PRECISION) AS "lng", "gc"."address",
            CAST("gc"."created_at" AS TEXT) AS "created_at",
            COUNT("gca"."id") AS "participant_count"
     FROM "green_challenges" AS "gc"
@@ -55,8 +56,9 @@ const DB_CHALLENGES: &str = r#"
 const DB_LOG_ACTIVITY: &str = r#"
     INSERT INTO "green_challenge_activities"
         ("user_id", "challenge_id", "carbon_saved_kg", "points_earned", "created_at")
-    VALUES ($1::uuid,$2::uuid,$3,$4,NOW())
-    RETURNING CAST("id" AS TEXT) AS "id", "user_id", CAST("challenge_id" AS TEXT) AS "challenge_id", "carbon_saved_kg", "points_earned",
+    VALUES ($1::uuid,$2::uuid,$3::numeric,$4,NOW())
+    RETURNING CAST("id" AS TEXT) AS "id", "user_id", CAST("challenge_id" AS TEXT) AS "challenge_id",
+            CAST("carbon_saved_kg" AS DOUBLE PRECISION) AS "carbon_saved_kg", "points_earned",
             CAST("created_at" AS TEXT) AS "created_at"
 "#;
 

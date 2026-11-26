@@ -240,7 +240,9 @@ fn client_ip(req: &Request<Body>) -> String {
 // ---------------------------------------------------------------------------
 
 const DB_CAMPAIGNS: &str = r#"
-    SELECT "id", "title", "description", "target_amount", "current_amount",
+    SELECT "id", "title", "description",
+           CAST("target_amount" AS DOUBLE PRECISION) AS "target_amount",
+           CAST("current_amount" AS DOUBLE PRECISION) AS "current_amount",
            "organizer_id", ST_AsText("location_point") AS "location_point",
            "address", "status", CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
@@ -252,7 +254,9 @@ const DB_CAMPAIGNS: &str = r#"
 "#;
 
 const DB_CAMPAIGN_BY_ID: &str = r#"
-    SELECT "id", "title", "description", "target_amount", "current_amount",
+    SELECT "id", "title", "description",
+           CAST("target_amount" AS DOUBLE PRECISION) AS "target_amount",
+           CAST("current_amount" AS DOUBLE PRECISION) AS "current_amount",
            "organizer_id", ST_AsText("location_point") AS "location_point",
            "address", "status", CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
@@ -308,7 +312,9 @@ const DB_INCREMENT_AMOUNT: &str = r#"
 "#;
 
 const DB_UPDATED_CAMPAIGN: &str = r#"
-    SELECT "id", "title", "current_amount", "target_amount"
+    SELECT "id", "title",
+           CAST("current_amount" AS DOUBLE PRECISION) AS "current_amount",
+           CAST("target_amount" AS DOUBLE PRECISION) AS "target_amount"
     FROM "donation_campaigns"
     WHERE "id"::text = $1
 "#;

@@ -47,13 +47,13 @@ fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
 // ---------------------------------------------------------------------------
 
 const DB_SELECT_CAMPAIGNS: &str = r#"
-    SELECT id, name, year, location, lat, lng, status, description,
+    SELECT id, name, year, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng", status, description,
            CAST(created_at AS TEXT) AS created_at
     FROM summer_campaigns WHERE status = 'active'
 "#;
 
 const DB_SELECT_CAMPAIGN_BY_ID: &str = r#"
-    SELECT id, name, year, location, lat, lng, status, description,
+    SELECT id, name, year, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng", status, description,
            CAST(created_at AS TEXT) AS created_at
     FROM summer_campaigns WHERE id::text = $1 AND status = 'active'
 "#;
@@ -61,21 +61,21 @@ const DB_SELECT_CAMPAIGN_BY_ID: &str = r#"
 const DB_INSERT_CAMPAIGN: &str = r#"
     INSERT INTO summer_campaigns (name, year, location, lat, lng, status, description)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING id, name, year, location, lat, lng, status, description,
+    RETURNING id, name, year, location, CAST(lat AS DOUBLE PRECISION) AS "lat", CAST(lng AS DOUBLE PRECISION) AS "lng", status, description,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_INSERT_ACTIVITY: &str = r#"
     INSERT INTO summer_activities (campaign_id, title, description, volunteer_count,
                                    hours_spent, date, status)
-    VALUES ($1::uuid,$2,$3,$4,$5,$6,$7)
+    VALUES ($1::uuid,$2,$3,$4,$5::numeric,$6,$7)
     RETURNING id, campaign_id, title, description, volunteer_count,
-              hours_spent, date, status,
+              CAST(hours_spent AS DOUBLE PRECISION) AS "hours_spent", date, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_SELECT_ACTIVITIES_BY_CAMPAIGN_DATE: &str = r#"
-    SELECT id, title, volunteer_count, hours_spent, date, status,
+    SELECT id, title, volunteer_count, CAST(hours_spent AS DOUBLE PRECISION) AS "hours_spent", date, status,
            CAST(created_at AS TEXT) AS created_at
     FROM summer_activities
     WHERE campaign_id::text = $1 AND date = $2
