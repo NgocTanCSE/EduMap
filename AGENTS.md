@@ -2756,6 +2756,17 @@ JSON backend thật (`ownerId`/`createdAt`/`itemId`/`requesterId`); 6 unused
 imports dọn (X/logger/useMap/L/createClusterIcon); nút Hủy/Đóng dùng `X` thay
 `AlertCircle`.
 
+**Đợt cast NUMERIC (commit `dbd58b3`→`d0b421c`, 2026-11-26):** test POST
+donate thật trên host lộ 4 lớp lỗi cast tiếp theo — \$2::uuid donor_id,
+\$3::numeric amount (DECIMAL), rồi opt_text decode binary DECIMAL qua
+as_bytes() thành JSON garbage (`\u0000\u0001...`). Quét toàn bộ module đọc
+cột DECIMAL trực tiếp và CAST AS DOUBLE PRECISION (pattern rating_avg của
+map.rs): donate (3 SELECT), events (price ×3), green (lat/lng +
+carbon_saved_kg + bind ::numeric), share (lat/lng), summer (lat/lng +
+hours_spent + bind), resource_exchange (lat/lng + cost). Verify host:
+POST donate success + amounts số sạch, 7/7 campaigns, 6/6 events price,
+green lat number, smoke 5/5.
+
 **Không sửa (chấp nhận, đã ghi nhận):** P1-6 review 1 (QuickDock `z-40` <
 panel `z-[50]` — dock chủ động nhường bằng `maxWidth`, trao đổi tổng thể); POI
 cluster + featured cluster 2 group riêng (cosmetic); WifiTool nút Eye chỉ đổi
