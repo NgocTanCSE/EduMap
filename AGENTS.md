@@ -2773,3 +2773,46 @@ cluster + featured cluster 2 group riêng (cosmetic); WifiTool nút Eye chỉ đ
 icon (state `showLayer` chưa nâng lên trang — để dành đợt layer state chung);
 P2 nhỏ về a11y (`aria-label` icon-only buttons, `aria-pressed` cho toggle
 layer) để dành đợt sau; Donate min amount 1000 validate JS để dành.
+
+## 31. FE Map UX polish pass (2026-11-26) — panel "bó", checkbox lệch hệ, responsive
+
+Đợt sửa 3 complaint của user qua 5 phase × 3 sub-agent/phase (plan:
+`tasks/fe-map-ux-polish-plan.md`, gồm audit evidence file:line + checklist
+smoke post-deploy §T5.2). 40 file sửa + 2 primitive mới, +302/−118. Không đụng
+backend/BFF/API surface.
+
+- **Phase 0 — primitives:** `components/ui/checkbox.tsx` + `switch.tsx` (button
+  `role="checkbox"/"switch"`, 16px/track 44px, semantic tokens, Check icon,
+  không Radix, không `@tailwindcss/forms`); `globals.css` thêm `.scrollbar-thin`
+  (scrollbar 6px nhìn thấy, token `--border`) cạnh `.scrollbar-hide`.
+- **Phase 1 — bỏ "bó" panel:** 8 tool hiển thị bỏ hộp `max-h-* overflow-y-auto
+  scrollbar-hide` lồng nhau (double-scroll) → list chảy trong menuBody của panel
+  (đổi `scrollbar-hide`→`scrollbar-thin`); reveal 30 đầu + nút **"Hiện thêm 50"**
+  đến hết (Summer reports 15/15); reset `visibleCount` theo filter input thật
+  của từng tool; LearningSpace `limit: 20→100`; Climate bỏ `.slice(0,10)/(0,8)`
+  âm thầm. WifiTool giờ mở dần cả 608 điểm wifi thay vì ~6 dòng.
+- **Phase 2 — đồng bộ controls:** "Lớp ghim" + chú giải ghim dùng cùng
+  `Checkbox` (hết 3 idioms cho 1 state); 6 checkbox no-op
+  (`text-primary border-border focus:ring` — không render vì thiếu forms
+  plugin) + 3 checkbox trống thay hết; chip Cụm ghim/Lớp nhiệt + ToolTab +
+  GreenTool status chips thêm `aria-pressed` (GreenTool bỏ raw `green-100`);
+  3 select hand-rolled → `.form-select` + `.form-select-compact` (panel 380px);
+  slider LearningSpace thêm `accent-primary`.
+- **Phase 3 — responsive:** `--edumap-map-panel-w` set từ giá trị đã clamp
+  (`window.innerWidth - 64`) + fallback `4.5rem`→`3.5rem` + QuickDock `max()`
+  chống calc âm (dock không còn biến mất ở 641-751px); legend + voice card
+  `right-[calc(var(--edumap-map-panel-w,3.5rem)+0.5rem)]` trôi theo panel
+  (hết đè panel mở); voice card thêm max-w (hết tràn 375px); `useResizable`
+  thêm touch (touchstart/move/end, passive:false, viewport clamp, sửa luôn
+  leak mousemove/mouseup cũ); DetailPopup scroll-lock `"overflow-hidden"`→
+  `"hidden"` (bug thật); admin layout mobile drawer (Menu/X, aria-expanded,
+  click-catcher trong suốt, tự đóng qua pathname, `main md:ml-72 ml-0`);
+  VoiceSearchPopup `bottom-20 sm:bottom-6` nhường FAB dock.
+- **Phase 4 — cleanup:** 18 trang `min-h-screen`→`min-h-dvh` (35 chỗ, auth/
+  admin/error giữ nguyên); HubTabBar thêm mask fade 2 mép (cue còn tab, đúng
+  cú pháp Tailwind `black_calc(100%_-_12px)`); 3 list phụ RoutingPanel đổi
+  `scrollbar-thin` (giữ max-h); profile div-switch `bg-white` → `Switch`
+  primitive.
+- **Verify:** 41/41 TSX PARSE OK (typescript từ `base-pristine` node_modules);
+  grep gates sạch; balance OK từng file. Runtime truth = host sau deploy.
+
