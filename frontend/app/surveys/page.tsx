@@ -24,7 +24,7 @@ export default function SurveysPage() {
             setLoading(false);
         }
     };
-    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    return (<div className="min-h-dvh bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <HubTabBar hubId="community"/>
       <div className="w-full mx-auto space-y-12">
 

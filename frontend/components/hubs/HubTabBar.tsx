@@ -13,7 +13,7 @@ export function HubTabBar({ hubId }: HubTabBarProps) {
     if (tabs.length < 2) {
         return null;
     }
-    return (<div className="shrink-0 border-b border-border bg-card overflow-x-auto scrollbar-hide">
+    return (<div className="shrink-0 border-b border-border bg-card overflow-x-auto scrollbar-hide [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_12px),transparent)]">
       <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ minWidth: "max-content" }}>
         {tabs.map((tab) => {
             const [path] = tab.href.split("?");

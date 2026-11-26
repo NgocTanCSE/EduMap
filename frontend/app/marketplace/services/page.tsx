@@ -111,7 +111,7 @@ export default function ServiceMarketplacePage() {
         }
     };
     const hasFilters = query.trim() !== '' || category !== 'all';
-    return (<div className="min-h-screen bg-background p-4 text-foreground sm:p-8">
+    return (<div className="min-h-dvh bg-background p-4 text-foreground sm:p-8">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <MarketplaceNav cartCount={cartCount}/>
 

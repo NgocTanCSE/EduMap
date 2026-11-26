@@ -151,7 +151,7 @@ export default function CommunityPage() {
         }
         return '@edumap_member';
     };
-    return (<div className="min-h-screen bg-background text-foreground w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8">
+    return (<div className="min-h-dvh bg-background text-foreground w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8">
       <HubTabBar hubId="community"/>
       <div className="w-full flex flex-col lg:flex-row gap-8 items-start">
 

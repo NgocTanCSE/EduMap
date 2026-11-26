@@ -81,12 +81,12 @@ export default function EventDetailPage({ params }: {
         }
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin"/>
       </div>);
     }
     if (!event) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy sự kiện này.</p>
         <Link href="/events" className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80 transition-colors">
@@ -97,7 +97,7 @@ export default function EventDetailPage({ params }: {
     const progress = Math.min(100, Math.round((event.registered_count / event.capacity) * 100)) || 0;
     const startDate = new Date(event.start_date);
     const isFull = event.registered_count >= event.capacity;
-    return (<div className="min-h-screen bg-background text-foreground py-8">
+    return (<div className="min-h-dvh bg-background text-foreground py-8">
       <div className="w-full mx-auto space-y-8">
         <Link href="/events" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors group text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/> QUAY LẠI DANH SÁCH

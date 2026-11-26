@@ -52,13 +52,13 @@ export default function PredictiveCareerPage() {
         }
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center gap-4">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin"/>
         <p className="text-primary font-bold animate-pulse uppercase tracking-widest text-xs">AI đang đọc hồ sơ của bạn...</p>
       </div>);
     }
     if (error) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <div className="bg-destructive/10 border border-destructive/20 p-10 rounded-lg max-w-lg">
           <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-6"/>
           <h2 className="text-2xl font-bold mb-4">Ối! Đã có lỗi xảy ra</h2>
@@ -71,7 +71,7 @@ export default function PredictiveCareerPage() {
         </div>
       </div>);
     }
-    return (<div className="min-h-screen bg-background text-foreground">
+    return (<div className="min-h-dvh bg-background text-foreground">
       <HubTabBar hubId="career" />
       <div className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="w-full mx-auto space-y-12">

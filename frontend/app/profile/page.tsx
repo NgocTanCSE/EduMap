@@ -5,6 +5,7 @@ import { authService, CurrentUser } from '../../src/services/auth.service';
 import { gamificationService, UserProgress, LeaderboardUser } from '../../src/services/gamification.service';
 import { storageService } from '../../src/services/storage.service';
 import FileUpload from '@/src/components/ui/FileUpload';
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
@@ -481,9 +482,7 @@ export default function ProfilePage() {
                       <p className="font-bold text-xs text-foreground">{pref.label}</p>
                       <p className="text-[11px] text-muted-foreground leading-snug">{pref.desc}</p>
                     </div>
-                    <button type="button" onClick={() => setNotificationPrefs({ ...notificationPrefs, [pref.id]: !notificationPrefs[pref.id as keyof typeof notificationPrefs] })} className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${notificationPrefs[pref.id as keyof typeof notificationPrefs] ? 'bg-primary' : 'bg-muted border border-border'}`}>
-                      <span className={`block w-4 h-4 bg-white rounded-full shadow transition-transform absolute top-1 ${notificationPrefs[pref.id as keyof typeof notificationPrefs] ? 'right-1' : 'left-1'}`}/>
-                    </button>
+                    <Switch checked={!!notificationPrefs[pref.id as keyof typeof notificationPrefs]} onCheckedChange={(v) => setNotificationPrefs({ ...notificationPrefs, [pref.id]: v })}/>
                   </div>))}
               </div>
 

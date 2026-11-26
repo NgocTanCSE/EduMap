@@ -120,7 +120,7 @@ export default function IntlPage() {
         (a.university || '').toLowerCase().includes(alumniSearch.toLowerCase()) ||
         (a.major || '').toLowerCase().includes(alumniSearch.toLowerCase()));
     const paginatedAlumni = filteredAlumni.slice((alumniPage - 1) * alumniPageSize, alumniPage * alumniPageSize);
-    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8 relative">
+    return (<div className="min-h-dvh bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8 relative">
       <HubTabBar hubId="learn"/>
 
       {showJoinModal && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">

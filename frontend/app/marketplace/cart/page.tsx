@@ -131,7 +131,7 @@ export default function CartPage() {
         }
     };
     if (checkoutStep === 3 && orderInfo) {
-        return (<div className="min-h-screen bg-background p-4 text-foreground sm:p-8">
+        return (<div className="min-h-dvh bg-background p-4 text-foreground sm:p-8">
         <div className="mx-auto w-full max-w-3xl space-y-6">
           <MarketplaceNav />
           <div className="rounded-lg border border-border bg-card p-8 text-center sm:p-10">
@@ -173,7 +173,7 @@ export default function CartPage() {
         </div>
       </div>);
     }
-    return (<div className="min-h-screen bg-background p-4 text-foreground sm:p-8">
+    return (<div className="min-h-dvh bg-background p-4 text-foreground sm:p-8">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <MarketplaceNav cartCount={cartCount}/>
 

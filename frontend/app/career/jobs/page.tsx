@@ -40,7 +40,7 @@ export default function JobsPage() {
         e.preventDefault();
         fetchJobs();
     };
-    return (<div className="min-h-screen bg-background text-foreground">
+    return (<div className="min-h-dvh bg-background text-foreground">
       <HubTabBar hubId="career" />
       <div className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="w-full mx-auto space-y-8">

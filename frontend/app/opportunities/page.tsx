@@ -34,7 +34,7 @@ export default function OpportunitiesPage() {
     };
     const filteredData = opportunities.filter(opp => opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         opp.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    return (<div className="min-h-screen bg-background text-foreground">
+    return (<div className="min-h-dvh bg-background text-foreground">
       <HubTabBar hubId="career" />
       <div className="page-shell">
       <div className="text-center space-y-6 max-w-3xl mx-auto">

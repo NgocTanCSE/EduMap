@@ -72,12 +72,12 @@ export default function InternshipDetailPage({ params }: {
         setShowApplyModal(true);
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin"/>
       </div>);
     }
     if (!internship) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cơ hội thực tập này.</p>
         <Link href="/internships" className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80 transition-colors">
@@ -86,7 +86,7 @@ export default function InternshipDetailPage({ params }: {
       </div>);
     }
     const isOpen = internship.status === 'open';
-    return (<div className="min-h-screen bg-background text-foreground py-8">
+    return (<div className="min-h-dvh bg-background text-foreground py-8">
       <div className="w-full mx-auto space-y-8">
         <Link href="/internships" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors group text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/> QUAY LẠI DANH SÁCH

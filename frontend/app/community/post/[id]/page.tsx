@@ -85,17 +85,17 @@ export default function PostDetailPage({ params }: {
         }
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary/80 animate-spin"/>
       </div>);
     }
     if (!post) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center">
               <h1 className="text-2xl font-bold mb-4">Không tìm thấy bài viết</h1>
               <Link href="/community" className="text-primary/80 hover:underline">Quay lại Cộng đồng</Link>
           </div>);
     }
-    return (<div className="min-h-screen bg-background text-foreground p-4 md:p-8">
+    return (<div className="min-h-dvh bg-background text-foreground p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
 
         <Link href="/community" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">

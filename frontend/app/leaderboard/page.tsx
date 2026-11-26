@@ -56,13 +56,13 @@ export default function LeaderboardPage() {
         }
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin"/>
       </div>);
     }
     const topThree = users.slice(0, 3);
     const others = users.slice(3);
-    return (<div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+    return (<div className="min-h-dvh bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
       <HubTabBar hubId="community"/>
       <div className="w-full mx-auto space-y-12">
 

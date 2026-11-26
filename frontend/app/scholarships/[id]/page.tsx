@@ -147,12 +147,12 @@ export default function ScholarshipDetailPage({ params }: {
         setShowApplyModal(true);
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin"/>
       </div>);
     }
     if (!scholarship) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy học bổng này.</p>
         <Link href="/scholarships" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary transition-all">
@@ -161,7 +161,7 @@ export default function ScholarshipDetailPage({ params }: {
       </div>);
     }
     const deadline = new Date(scholarship.deadline);
-    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    return (<div className="min-h-dvh bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         <Link href="/scholarships" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/> QUAY LẠI DANH SÁCH

@@ -38,7 +38,7 @@ export default function CareerRoadmapPage() {
             setLoading(false);
         }
     };
-    return (<div className="min-h-screen bg-background text-foreground">
+    return (<div className="min-h-dvh bg-background text-foreground">
       <HubTabBar hubId="career" />
       <div className="w-full mx-auto p-8">
 
