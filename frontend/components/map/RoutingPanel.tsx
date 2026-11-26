@@ -4,6 +4,7 @@ import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapP
 import { toast } from "@/src/lib/toast";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useResizable } from '@/src/hooks/useResizable';
 function parseCoordinate(value: string): {
     lat: number;
@@ -316,7 +317,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
         <div className="border-t border-border pt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <label className="flex items-center gap-2 cursor-pointer group whitespace-nowrap">
-              <input type="checkbox" checked={avoidFlood} onChange={(e) => setAvoidFlood(e.target.checked)} className="w-4 h-4 text-primary border-border rounded focus:ring-primary shrink-0"/>
+              <Checkbox checked={avoidFlood} onCheckedChange={(v) => setAvoidFlood(v)} className="shrink-0"/>
               <div className="flex items-center gap-1 min-w-0">
                 <Shield className="w-4 h-4 text-primary shrink-0"/>
                 <span className="text-sm text-muted-foreground/80 truncate whitespace-nowrap">
@@ -325,7 +326,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
               </div>
             </label>
             <label className="flex items-center gap-2 cursor-pointer group whitespace-nowrap">
-              <input type="checkbox" checked={avoidTraffic} onChange={(e) => setAvoidTraffic(e.target.checked)} className="w-4 h-4 text-primary/90 border-border rounded focus:ring-primary shrink-0"/>
+              <Checkbox checked={avoidTraffic} onCheckedChange={(v) => setAvoidTraffic(v)} className="shrink-0"/>
               <div className="flex items-center gap-1 min-w-0">
                 <Car className="w-4 h-4 text-primary/90 shrink-0"/>
                 <span className="text-sm text-muted-foreground/80 truncate whitespace-nowrap">
@@ -391,7 +392,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
                   <Info className="w-3 h-3"/>
                   {showDetails ? 'Ẩn chi tiết' : 'Xem chi tiết từng đoạn'}
                 </button>
-                {showDetails && routeInfo.trafficAnalysis.segments && (<ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
+                {showDetails && routeInfo.trafficAnalysis.segments && (<ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
                     {routeInfo.trafficAnalysis.segments.map((seg, i) => (<li key={i} className="flex items-center justify-between p-1 bg-muted/20 rounded">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${getCongestionColor(seg.congestionLevel)}`}/>
@@ -411,7 +412,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
 
             {routeInfo.segments && routeInfo.segments.length > 0 && (<details className="text-xs text-muted-foreground/60">
                 <summary className="cursor-pointer font-medium text-muted-foreground/80">Chi tiết lộ trình</summary>
-                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
+                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
                   {routeInfo.segments.map((seg, i) => (<li key={i} className="flex items-center justify-between p-1 bg-muted/20 rounded">
                       <span className="text-muted-foreground/80">{seg.name || `Đoạn ${i + 1}`}</span>
                       <div className="flex items-center gap-2">
@@ -518,7 +519,7 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
               <Info className="w-4 h-4 text-accent"/>
               Lý do lựa chọn (AI)
             </h4>
-            <div className="text-xs text-muted-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 max-h-48 overflow-y-auto scrollbar-hide">
+            <div className="text-xs text-muted-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 max-h-48 overflow-y-auto scrollbar-thin">
               {routeExplanation}
             </div>
           </div>)}

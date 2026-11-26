@@ -7,6 +7,7 @@ import { authService } from '../../../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function DonationDetailPage({ params }: {
     params: {
@@ -64,12 +65,12 @@ export default function DonationDetailPage({ params }: {
         }
     };
     if (loading) {
-        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        return (<div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin"/>
       </div>);
     }
     if (!campaign) {
-        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        return (<div className="min-h-dvh bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy chiến dịch quyên góp này.</p>
         <button onClick={() => (window.location.href = '/map?tool=donate')} className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80">
@@ -94,7 +95,7 @@ export default function DonationDetailPage({ params }: {
             return `${diffInHours} giờ trước`;
         return date.toLocaleDateString('vi-VN');
     };
-    return (<div className="min-h-screen bg-background text-foreground py-8">
+    return (<div className="min-h-dvh bg-background text-foreground py-8">
       <div className="w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 space-y-8">
           <div className="rounded-xl overflow-hidden border border-border aspect-video relative">
@@ -179,7 +180,7 @@ export default function DonationDetailPage({ params }: {
               <div className="space-y-2">
                 <input type="text" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="Số tiền khác (VNĐ)..." className="w-full bg-card border border-border rounded-xl py-3 px-4 text-sm focus:border-primary outline-none text-primary"/>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-border bg-card focus:ring-primary"/>
+                  <Checkbox checked={isAnonymous} onCheckedChange={(v) => setIsAnonymous(v)} className="bg-card"/>
                   <span className="text-[10px] text-muted-foreground/65">
                     Quyên góp ẩn danh
                   </span>

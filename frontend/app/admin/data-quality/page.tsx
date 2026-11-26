@@ -11,6 +11,7 @@ import 'leaflet/dist/leaflet.css';
 import { getTileAttribution, getTileUrl } from '@/src/lib/map-tiles';
 import { adminService, Anomaly, DataQualityReport } from '../../../src/services/admin.service';
 import { toast } from "@/src/lib/toast";
+import { Checkbox } from '@/components/ui/checkbox';
 const CATEGORY_OPTIONS: Array<{
     value: string;
     label: string;
@@ -180,7 +181,7 @@ export default function AdminDataQualityPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="include-clean" checked={includeClean} onChange={(e) => setIncludeClean(e.target.checked)} className="w-4 h-4 rounded bg-card border-border text-primary focus:ring-primary"/>
+            <Checkbox id="include-clean" checked={includeClean} onCheckedChange={(v) => setIncludeClean(v)} className="bg-card"/>
             <label htmlFor="include-clean" className="text-sm text-muted-foreground/60">
               Bao gồm dữ liệu sạch
             </label>
