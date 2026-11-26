@@ -5,6 +5,7 @@ import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, Circle, useMap, } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
@@ -98,7 +99,7 @@ export function SurveyPlannerPanel({ viewport, result, onResult, loading, setLoa
             <input type="number" step={0.0001} value={currentLng} onChange={(e) => setCurrentLng(parseFloat(e.target.value))} className="form-input text-sm"/>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <input type="checkbox" id="auto-locate" checked={autoLocate} onChange={(e) => setAutoLocate(e.target.checked)} className="rounded border-border text-primary focus:ring-primary"/>
+            <Checkbox id="auto-locate" checked={autoLocate} onCheckedChange={(v) => setAutoLocate(v)}/>
             <label htmlFor="auto-locate" className="text-xs text-muted-foreground">
               Dùng vị trí hiện tại
             </label>

@@ -6,6 +6,7 @@ import { Marker, Popup, Tooltip, Circle } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 import { createPinIcon } from "../PinTheme";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { donateService, DonationCampaign } from "@/src/services/donate.service";
 import { authService } from "@/src/services/auth.service";
 function parsePoint(point?: string): [number, number] | null {
@@ -35,6 +36,7 @@ function formatVnd(value: number | string): string {
 }
 function DonatePanel({ result, onResult, loading, setLoading, error, setError, active, onFocusMap }: ToolPanelProps) {
     const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
+    const [visibleCount, setVisibleCount] = useState(30);
     const [searchTerm, setSearchTerm] = useState("");
     const [donatingTo, setDonatingTo] = useState<DonationCampaign | null>(null);
     const [amount, setAmount] = useState("");
@@ -68,12 +70,16 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
             return;
         void fetchCampaigns();
     }, [active]);
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [searchTerm]);
     const filtered = useMemo(() => {
         const needle = searchTerm.trim().toLowerCase();
         if (!needle)
             return campaigns;
         return campaigns.filter((c) => `${c.title} ${c.address || ""}`.toLowerCase().includes(needle));
     }, [campaigns, searchTerm]);
+    const visibleItems = filtered.slice(0, visibleCount);
     const handleDonate = async () => {
         if (!donatingTo)
             return;
@@ -137,7 +143,7 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
           </div>
           <input type="number" min={1000} placeholder="Số tiền (VND)" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-2 h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"/>
           <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
-            <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)}/>
+            <Checkbox checked={anonymous} onCheckedChange={setAnonymous} aria-label="Quyên góp ẩn danh"/>
             Quyên góp ẩn danh
           </label>
           <button onClick={handleDonate} disabled={submitting} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
@@ -150,8 +156,8 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
         </div>) : (<>
           {loading && campaigns.length === 0 ? (<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin"/> Đang tải...
-            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có chiến dịch nào.</p>) : (<div className="max-h-72 space-y-1 overflow-y-auto scrollbar-hide">
-              {filtered.map((camp) => {
+            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có chiến dịch nào.</p>) : (<div className="space-y-1">
+              {visibleItems.map((camp) => {
                 const progress = camp.target_amount > 0 ? Math.min(100, Math.round((camp.current_amount / camp.target_amount) * 100)) : 0;
                 return (<div key={camp.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
                     <div className="flex items-start justify-between gap-2">
@@ -192,6 +198,7 @@ function DonatePanel({ result, onResult, loading, setLoading, error, setError, a
                     </button>
                   </div>);
             })}
+              {filtered.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, filtered.length - visibleCount)} chiến dịch (còn ${filtered.length - visibleCount})`}</button>) : filtered.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${filtered.length} mục`}</p>) : null}
             </div>)}
         </>)}
 

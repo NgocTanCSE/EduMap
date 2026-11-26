@@ -5,6 +5,7 @@ import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Marker, Popup, Rectangle, useMap, } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
@@ -111,7 +112,7 @@ export function GeoVisionPanel({ viewport, result, onResult, loading, setLoading
         </div>
 
         <div className="flex items-center gap-2">
-          <input type="checkbox" id="use-viewport" checked={useViewport} onChange={(e) => setUseViewport(e.target.checked)} className="rounded border-border text-primary focus:ring-primary"/>
+          <Checkbox id="use-viewport" checked={useViewport} onCheckedChange={(v) => setUseViewport(v)}/>
           <label htmlFor="use-viewport" className="text-sm text-foreground">
             Dùng khung bản đồ hiện tại
           </label>

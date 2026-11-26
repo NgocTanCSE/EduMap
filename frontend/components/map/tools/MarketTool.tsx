@@ -29,6 +29,7 @@ function itemCoords(item: MarketItem): [number, number] | null {
 }
 function MarketPanel({ viewport, result, onResult, loading, setLoading, error, setError, active , onFocusMap }: ToolPanelProps) {
     const [items, setItems] = useState<MarketItem[]>([]);
+    const [visibleCount, setVisibleCount] = useState(30);
     const [category, setCategory] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [borrowingItem, setBorrowingItem] = useState<MarketItem | null>(null);
@@ -65,6 +66,9 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
             return;
         void fetchItems("");
     }, [active]);
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [category, searchTerm]);
     const filtered = useMemo(() => {
         const needle = searchTerm.trim().toLowerCase();
         if (!needle)
@@ -73,6 +77,7 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(needle)));
     }, [items, searchTerm]);
+    const visibleItems = filtered.slice(0, visibleCount);
     const handleCategory = (cat: string) => {
         setCategory(cat);
         void fetchItems(cat);
@@ -164,7 +169,7 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
             </button>
           </div>
           <input type="text" placeholder="Tên tài liệu / học cụ" value={shareForm.name} onChange={(e) => setShareForm({ ...shareForm, name: e.target.value })} className="h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"/>
-          <select value={shareForm.category} onChange={(e) => setShareForm({ ...shareForm, category: e.target.value })} className="mt-2 h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary">
+          <select value={shareForm.category} onChange={(e) => setShareForm({ ...shareForm, category: e.target.value })} className="form-select w-full form-select-compact mt-2">
             <option value="book">Sách &amp; giáo trình</option>
             <option value="tool">Dụng cụ học tập</option>
             <option value="electronic">Thiết bị điện tử</option>
@@ -206,8 +211,8 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
 
           {loading && items.length === 0 ? (<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin"/> Đang tải...
-            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có tài liệu nào trong chuyên mục này.</p>) : (<div className="max-h-72 space-y-1 overflow-y-auto scrollbar-hide">
-              {filtered.map((item) => (<div key={item.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
+            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có tài liệu nào trong chuyên mục này.</p>) : (<div className="space-y-1">
+              {visibleItems.map((item) => (<div key={item.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
                   <div className="flex items-start justify-between gap-2">
                     <button type="button" onClick={() => {
                         const c = itemCoords(item);
@@ -231,6 +236,7 @@ function MarketPanel({ viewport, result, onResult, loading, setLoading, error, s
                     Mượn tài liệu
                   </button>
                 </div>))}
+              {filtered.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, filtered.length - visibleCount)} tài liệu (còn ${filtered.length - visibleCount})`}</button>) : filtered.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${filtered.length} mục`}</p>) : null}
             </div>)}
         </>)}
 

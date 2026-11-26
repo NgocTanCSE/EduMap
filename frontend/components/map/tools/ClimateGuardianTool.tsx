@@ -49,6 +49,8 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
     const [altCategory, setAltCategory] = useState("");
     const [altResult, setAltResult] = useState<any>(null);
     const [altLoading, setAltLoading] = useState(false);
+    const [visibleRiskCount, setVisibleRiskCount] = useState(30);
+    const [visibleAltCount, setVisibleAltCount] = useState(30);
     const fetchIdRef = useRef(0);
     const fetchRisk = useCallback(async () => {
         if (!active)
@@ -125,6 +127,14 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
         return cells.every((f: any) => (f.properties?.elevation_m ?? null) === null);
     }, [riskResult]);
     const safeAlts = useMemo(() => (altResult?.features || []), [altResult]);
+    useEffect(() => {
+        setVisibleRiskCount(30);
+    }, [bbox.minLat, bbox.maxLat, bbox.minLng, bbox.maxLng, dateStr]);
+    useEffect(() => {
+        setVisibleAltCount(30);
+    }, [altCenter.lat, altCenter.lng, altRadius, altCategory]);
+    const visibleRisk = riskRanking.slice(0, visibleRiskCount);
+    const visibleAlts = safeAlts.slice(0, visibleAltCount);
     return (<div className="space-y-4">
       <p className="text-xs text-muted-foreground">
         Kết hợp bản đồ ngập lũ tĩnh (dữ liệu lịch sử sông Đồng Nai, Cửu Long,
@@ -201,7 +211,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
           <span>Bảng xếp hạng khu vực nguy cơ</span>
         </div>
         {riskRanking.length === 0 ? (<p className="text-[10px] text-muted-foreground/65">Chưa có dữ liệu.</p>) : (<div className="space-y-1">
-            {riskRanking.slice(0, 10).map((r: any, i: number) => (<div key={`${r.lat}:${r.lng}:${i}`} className="flex items-center gap-2 text-xs">
+            {visibleRisk.map((r: any, i: number) => (<div key={`${r.lat}:${r.lng}:${i}`} className="flex items-center gap-2 text-xs">
                 <span className="w-4 text-muted-foreground/60 text-right">{i + 1}.</span>
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: riskLabelColor(r.risk_score) }}/>
                 <div className="flex-1">
@@ -213,6 +223,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
                   {formatPct(r.risk_score * 100)}
                 </span>
               </div>))}
+            {riskRanking.length > visibleRiskCount ? (<button type="button" onClick={() => setVisibleRiskCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, riskRanking.length - visibleRiskCount)} ô nguy cơ (còn ${riskRanking.length - visibleRiskCount})`}</button>) : riskRanking.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${riskRanking.length} ô nguy cơ`}</p>) : null}
           </div>)}
       </div>
 
@@ -240,7 +251,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
         </button>
 
         {safeAlts.length > 0 ? (<div className="space-y-1">
-            {safeAlts.slice(0, 8).map((f: any) => {
+            {visibleAlts.map((f: any) => {
                 const props = f.properties || {};
                 return (<div key={props.id || `${props.lat}:${props.lng}`} className="p-2 rounded border border-green-500/20 bg-green-500/5">
                   <div className="font-medium text-foreground text-xs">{props.name}</div>
@@ -251,6 +262,7 @@ export function ClimateGuardianPanel({ viewport, result, onResult, loading, setL
                   </div>
                 </div>);
             })}
+            {safeAlts.length > visibleAltCount ? (<button type="button" onClick={() => setVisibleAltCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, safeAlts.length - visibleAltCount)} điểm thay thế (còn ${safeAlts.length - visibleAltCount})`}</button>) : safeAlts.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${safeAlts.length} điểm thay thế`}</p>) : null}
           </div>) : (<p className="text-[10px] text-muted-foreground/65">
             {altResult ? "Không tìm thấy nơi nào an toàn trong bán kính." : "Nhấn \"Tìm nơi học an toàn\" để bắt đầu."}
           </p>)}

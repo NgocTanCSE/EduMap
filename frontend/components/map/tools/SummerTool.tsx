@@ -46,6 +46,8 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
     const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
     const [reportData, setReportData] = useState<any>(null);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [visibleCampaigns, setVisibleCampaigns] = useState(30);
+    const [visibleReports, setVisibleReports] = useState(15);
     const fetchCampaigns = useCallback(async () => {
         try {
             setLoading(true);
@@ -80,6 +82,12 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
             return campaigns;
         return campaigns.filter((c) => `${c.name} ${c.location}`.toLowerCase().includes(needle));
     }, [campaigns, searchTerm]);
+    useEffect(() => {
+        setVisibleCampaigns(30);
+    }, [searchTerm]);
+    useEffect(() => {
+        setVisibleReports(15);
+    }, [reportData]);
     const handleRegister = async (camp: SummerCampaign) => {
         if (!authService.isLoggedIn()) {
             toast.error("Vui lòng đăng nhập để đăng ký");
@@ -118,6 +126,9 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
     };
     if (!active)
         return null;
+    const shownCampaigns = filtered.slice(0, visibleCampaigns);
+    const activities = Array.isArray(reportData?.activities) ? reportData.activities : [];
+    const shownReports = activities.slice(0, visibleReports);
     return (<div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -162,8 +173,8 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
                   <p className="text-lg font-bold text-accent">{reportData.activity_count || 0}</p>
                 </div>
               </div>
-              <div className="max-h-40 space-y-1 overflow-y-auto scrollbar-hide">
-                {reportData.activities?.length > 0 ? reportData.activities.map((act: any, idx: number) => (<div key={idx} className="rounded-lg border border-border p-2 text-[11px]">
+              <div className="space-y-1">
+                {activities.length > 0 ? shownReports.map((act: any, idx: number) => (<div key={idx} className="rounded-lg border border-border p-2 text-[11px]">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-medium text-foreground">{act.title}</span>
                       <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{act.status}</span>
@@ -175,13 +186,14 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
                   </div>)) : (<p className="py-2 text-center text-[11px] italic text-muted-foreground/60">
                     Chưa có nhật ký hoạt động cho ngày này.
                   </p>)}
+                {activities.length > visibleReports ? (<button type="button" onClick={() => setVisibleReports((c) => c + 15)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(15, activities.length - visibleReports)} hoạt động (còn ${activities.length - visibleReports})`}</button>) : activities.length > 15 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${activities.length} hoạt động`}</p>) : null}
               </div>
             </div>) : (<p className="mt-2 text-center text-[11px] text-muted-foreground/60">Không có dữ liệu báo cáo.</p>)}
         </div>) : (<>
           {loading && campaigns.length === 0 ? (<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin"/> Đang tải...
-            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có chiến dịch nào.</p>) : (<div className="max-h-72 space-y-1 overflow-y-auto scrollbar-hide">
-              {filtered.map((camp) => {
+            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Chưa có chiến dịch nào.</p>) : (<div className="space-y-1">
+              {shownCampaigns.map((camp) => {
                 const isActive = camp.status === "active";
                 return (<div key={camp.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
                     <div className="flex items-start justify-between gap-2">
@@ -214,6 +226,7 @@ function SummerPanel({ result, onResult, loading, setLoading, error, setError, a
                     </div>
                   </div>);
             })}
+              {filtered.length > visibleCampaigns ? (<button type="button" onClick={() => setVisibleCampaigns((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, filtered.length - visibleCampaigns)} chiến dịch (còn ${filtered.length - visibleCampaigns})`}</button>) : filtered.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${filtered.length} chiến dịch`}</p>) : null}
             </div>)}
         </>)}
 

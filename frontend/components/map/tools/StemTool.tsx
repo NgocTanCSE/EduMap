@@ -74,6 +74,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
     const [time, setTime] = useState("");
     const [duration, setDuration] = useState("2");
     const [booking, setBooking] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(30);
     const fetchLabs = useCallback(async () => {
         try {
             setLoading(true);
@@ -104,6 +105,9 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
     }, [active]);
     const filtered = useMemo(() => labs.filter((lab) => (lab.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (lab.address || "").toLowerCase().includes(searchTerm.toLowerCase())), [labs, searchTerm]);
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [searchTerm]);
     const openBooking = (lab: StemLab, eq: string) => {
         if (!authService.isLoggedIn()) {
             toast.error("Vui lòng đăng nhập để đặt thiết bị");
@@ -143,6 +147,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
     };
     if (!active)
         return null;
+    const visibleLabs = filtered.slice(0, visibleCount);
     return (<div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -182,7 +187,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
           </div>
           <div className="mt-2">
             <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Thời gian sử dụng</label>
-            <select value={duration} onChange={(e) => setDuration(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary">
+            <select value={duration} onChange={(e) => setDuration(e.target.value)} className="form-select w-full form-select-compact">
               <option value="1">1 giờ</option>
               <option value="2">2 giờ</option>
               <option value="4">4 giờ</option>
@@ -198,8 +203,8 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
         </div>) : (<>
           {loading && labs.length === 0 ? (<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin"/> Đang tải...
-            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Không tìm thấy phòng Lab STEM nào phù hợp.</p>) : (<div className="max-h-72 space-y-1 overflow-y-auto scrollbar-hide">
-              {filtered.map((lab) => (<div key={lab.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
+            </div>) : filtered.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">Không tìm thấy phòng Lab STEM nào phù hợp.</p>) : (<div className="space-y-1">
+              {visibleLabs.map((lab) => (<div key={lab.id} className="rounded-lg border border-border p-2 text-xs transition-colors hover:bg-muted/30">
                   <div className="flex items-start justify-between gap-2">
                     <button type="button" onClick={() => {
                         const c = labCoords(lab);
@@ -225,6 +230,7 @@ function StemPanel({ result, onResult, loading, setLoading, error, setError, act
                     {!lab.equipment?.length && (<span className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[10px] italic text-muted-foreground/60">Chưa khai báo thiết bị</span>)}
                   </div>
                 </div>))}
+              {filtered.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, filtered.length - visibleCount)} phòng lab (còn ${filtered.length - visibleCount})`}</button>) : filtered.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${filtered.length} phòng lab`}</p>) : null}
             </div>)}
         </>)}
 

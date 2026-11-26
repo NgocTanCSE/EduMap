@@ -93,6 +93,8 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
     const [wifiLocations, setWifiLocations] = useState<WifiLocation[]>([]);
     const [showLayer, setShowLayer] = useState(true);
     const [nearby, setNearby] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(30);
+    useEffect(() => { setVisibleCount(30); }, [wifiLocations]);
     useEffect(() => {
         if (!active)
             return;
@@ -153,6 +155,7 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
     const paidCount = wifiLocations.filter((w) => w.is_free === false).length;
     const verifiedCount = wifiLocations.filter((w) => w.is_verified).length;
     const fastCount = wifiLocations.filter((w) => w.speedLabel === "Rất nhanh").length;
+    const visibleWifi = wifiLocations.slice(0, visibleCount);
     if (!active)
         return null;
     return (<div className="space-y-3">
@@ -201,8 +204,8 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
       </div>
 
       
-      {wifiLocations.length > 0 ? (<div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
-          {wifiLocations.map((w) => (<div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
+      {wifiLocations.length > 0 ? (<div className="space-y-1">
+          {visibleWifi.map((w) => (<div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="flex items-center gap-1.5 font-medium text-foreground">
                 {w.is_verified && <CheckCircle2 className="w-3 h-3 text-green-600"/>}
                 {w.name || w.ssid}
@@ -219,6 +222,9 @@ function WifiPanel({ viewport, result, onResult, loading, setLoading, error, set
               </div>
               {w.address && <p className="text-muted-foreground/60 mt-0.5">{w.address}</p>}
             </div>))}
+          {wifiLocations.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">
+              {`Hiện thêm ${Math.min(50, wifiLocations.length - visibleCount)} điểm (còn ${wifiLocations.length - visibleCount})`}
+            </button>) : (wifiLocations.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${wifiLocations.length} điểm`}</p>) : null)}
         </div>) : (!loading && <p className="text-xs text-muted-foreground/60">Chưa có dữ liệu Wifi.</p>)}
 
       {error && (<div className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground/60 bg-muted/10 rounded-lg">

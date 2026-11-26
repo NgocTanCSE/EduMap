@@ -6,6 +6,7 @@ import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
 import { createPinIcon } from "../PinTheme";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { learningSpaceService, RecommendParams, ScoredSpot } from "@/src/services/learning-space.service";
 let mapRef: any = null;
 function MapBridge() {
@@ -46,12 +47,16 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
         min_rating: 0,
         quietness_min: 0,
         open_now: false,
-        limit: 20,
+        limit: 100,
     });
     const [spotCount, setSpotCount] = useState(0);
     const [degraded, setDegraded] = useState(false);
     const [explanation, setExplanation] = useState<{ name: string; text: string } | null>(null);
+    const [visibleCount, setVisibleCount] = useState(30);
     const spots: ScoredSpot[] = useMemo(() => (Array.isArray(result) ? result : []), [result]);
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [filters.radius, filters.has_wifi, filters.min_rating, filters.quietness_min]);
     const fetchSpots = useCallback(async (params: RecommendParams) => {
         try {
             setLoading(true);
@@ -122,6 +127,7 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
     };
     if (!active)
         return null;
+    const visibleSpots = spots.slice(0, visibleCount);
     return (<div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -135,20 +141,20 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
       <div className="rounded-xl border border-border p-3">
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Bán kính</label>
-          <select value={filters.radius} onChange={(e) => setFilters({ ...filters, radius: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary">
+          <select value={filters.radius} onChange={(e) => setFilters({ ...filters, radius: Number(e.target.value) })} className="form-select w-full form-select-compact">
             {RADIUS_OPTIONS.map((r) => (<option key={r} value={r}>{r >= 1000 ? `${r / 1000} km` : `${r} m`}</option>))}
           </select>
         </div>
 
         <div className="mt-2 flex items-center gap-2">
-          <input type="checkbox" id="ls-wifi" checked={!!filters.has_wifi} onChange={(e) => setFilters({ ...filters, has_wifi: e.target.checked })}/>
+          <Checkbox id="ls-wifi" checked={!!filters.has_wifi} onCheckedChange={(v) => setFilters({ ...filters, has_wifi: v })}/>
           <label htmlFor="ls-wifi" className="flex cursor-pointer items-center gap-1.5 text-xs">
             <Wifi className="w-3 h-3"/> Có WiFi
           </label>
         </div>
 
         <div className="mt-2 flex items-center gap-2">
-          <input type="checkbox" id="ls-open" checked={!!filters.open_now} onChange={(e) => setFilters({ ...filters, open_now: e.target.checked })}/>
+          <Checkbox id="ls-open" checked={!!filters.open_now} onCheckedChange={(v) => setFilters({ ...filters, open_now: v })}/>
           <label htmlFor="ls-open" className="flex cursor-pointer items-center gap-1.5 text-xs">
             <Clock className="w-3 h-3"/> Đang mở cửa
           </label>
@@ -158,14 +164,14 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
             Điểm tối thiểu: ≥ {filters.min_rating}/5
           </label>
-          <input type="range" min={0} max={5} step={0.5} value={filters.min_rating} onChange={(e) => setFilters({ ...filters, min_rating: Number(e.target.value) })} className="w-full"/>
+          <input type="range" min={0} max={5} step={0.5} value={filters.min_rating} onChange={(e) => setFilters({ ...filters, min_rating: Number(e.target.value) })} className="w-full accent-primary"/>
         </div>
 
         <div className="mt-2">
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
             Độ yên tĩnh: ≥ {filters.quietness_min}/5
           </label>
-          <input type="range" min={1} max={5} step={1} value={filters.quietness_min} onChange={(e) => setFilters({ ...filters, quietness_min: Number(e.target.value) })} className="w-full"/>
+          <input type="range" min={1} max={5} step={1} value={filters.quietness_min} onChange={(e) => setFilters({ ...filters, quietness_min: Number(e.target.value) })} className="w-full accent-primary"/>
         </div>
 
         <div className="mt-3 flex gap-2">
@@ -194,8 +200,8 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
           <Loader2 className="w-4 h-4 animate-spin"/> Đang tìm...
         </div>) : spots.length === 0 ? (<p className="py-4 text-xs text-muted-foreground/60">
           Chưa có địa điểm nào. Điều chỉnh bộ lọc rồi bấm Tìm.
-        </p>) : (<div className="max-h-64 space-y-1 overflow-y-auto scrollbar-hide">
-          {spots.map((entry) => {
+        </p>) : (<div className="space-y-1">
+          {visibleSpots.map((entry) => {
             const s = entry.spot;
             return (<div key={s.id} role="button" tabIndex={0} onClick={() => handleSelect(entry)} onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -229,6 +235,7 @@ function LearningSpacePanel({ viewport, result, onResult, loading, setLoading, e
               </button>
             </div>);
         })}
+          {spots.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, spots.length - visibleCount)} điểm học tập (còn ${spots.length - visibleCount})`}</button>) : spots.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${spots.length} điểm học tập`}</p>) : null}
         </div>)}
 
       {explanation && (<div className="rounded-lg border border-accent/30 bg-accent/5 p-2 text-[11px]">

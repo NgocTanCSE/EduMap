@@ -37,11 +37,15 @@ function greenBadge(challenge: GreenChallenge): PinBadge | undefined {
 export function GreenPanel({ viewport, result, onResult, loading, setLoading, error, setError, active, user, }: ToolPanelProps) {
     const [challenges, setChallenges] = useState<GreenChallenge[]>([]);
     const [filter, setFilter] = useState("all");
+    const [visibleCount, setVisibleCount] = useState(30);
     useEffect(() => {
         if (!active)
             return;
         fetchChallenges();
     }, [active]);
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [filter]);
     const fetchChallenges = useCallback(async () => {
         try {
             setLoading(true);
@@ -70,6 +74,7 @@ export function GreenPanel({ viewport, result, onResult, loading, setLoading, er
     const totalPoints = challenges.reduce((sum, c) => sum + (c.points || 0), 0);
     const totalCarbon = challenges.reduce((sum, c) => sum + (c.carbon_saved_kg || 0), 0);
     const totalParticipants = challenges.reduce((sum, c) => sum + (c.participants_count || 0), 0);
+    const visibleItems = filtered.slice(0, visibleCount);
     if (!active)
         return null;
     return (<div className="space-y-3">
@@ -101,9 +106,9 @@ export function GreenPanel({ viewport, result, onResult, loading, setLoading, er
         {Object.entries(STATUS_FILTER_LABELS).map(([key, label]) => {
             const on = filter === key;
             const halo = STATUS_HALO_COLOR[key] || STATUS_HALO_COLOR.active;
-            return (<button key={key} onClick={() => setFilter(key)} className={`px-2 py-1 rounded transition-all ${on
-                    ? "bg-green-100/30 text-green-600 border border-green-600/30 shadow"
-                    : "text-muted-foreground/60 hover:bg-muted/30 border border-transparent"}`}>
+            return (<button key={key} onClick={() => setFilter(key)} aria-pressed={on} className={`px-2 py-1 rounded transition-all border ${on
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border/70 bg-background/40 text-muted-foreground hover:text-foreground"}`}>
               {key !== "all" && (<span className="w-1.5 h-1.5 rounded-full inline-block mr-1" style={{ backgroundColor: halo.color }}/>)}
               {label}
             </button>);
@@ -111,8 +116,8 @@ export function GreenPanel({ viewport, result, onResult, loading, setLoading, er
       </div>
 
       
-      {filtered.length > 0 ? (<div className="space-y-1 max-h-52 overflow-y-auto scrollbar-hide">
-          {filtered.map((c) => (<div key={c.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
+      {filtered.length > 0 ? (<div className="space-y-1">
+          {visibleItems.map((c) => (<div key={c.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="flex items-center gap-1.5 font-medium text-foreground">
                 {c.status === "active" ? (<Clock className="w-3 h-3 text-orange-500"/>) : (<BarChart3 className="w-3 h-3 text-blue-500"/>)}
                 {c.title}
@@ -127,6 +132,7 @@ export function GreenPanel({ viewport, result, onResult, loading, setLoading, er
                   • {c.points} điểm
                 </p>)}
             </div>))}
+          {filtered.length > visibleCount ? (<button type="button" onClick={() => setVisibleCount((c) => c + 50)} className="w-full rounded-lg border border-border/70 bg-muted/30 py-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground">{`Hiện thêm ${Math.min(50, filtered.length - visibleCount)} hoạt động (còn ${filtered.length - visibleCount})`}</button>) : filtered.length > 30 ? (<p className="py-1 text-center text-[10px] text-muted-foreground/60">{`Đã hiện tất cả ${filtered.length} mục`}</p>) : null}
         </div>) : (!loading && <p className="text-xs text-muted-foreground/60">Chưa có thử thách nào.</p>)}
 
       {error && (<div className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground/60 bg-muted/10 rounded-lg">
